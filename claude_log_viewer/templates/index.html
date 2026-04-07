@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en" class="dark h-full antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Log Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Geist','sans-serif'], mono: ['"JetBrains Mono"','monospace'] },
+                    colors: { anthropic: '#d97d54' }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root { --syn-kw:#d73a49;--syn-fn:#6f42c1;--syn-cm:#6e7781;--syn-cn:#0550ae; }
+        .dark { --syn-kw:#ff7b72;--syn-fn:#d2a8ff;--syn-cm:#8b949e;--syn-cn:#79c0ff; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] summary .caret { transform: rotate(90deg); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        .dark ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
+    </style>
+</head>
+<body class="flex h-full overflow-hidden bg-white dark:bg-[#09090b] text-zinc-800 dark:text-zinc-300 transition-colors duration-300">
+
+    <!-- SIDEBAR -->
+    <aside class="w-72 flex-shrink-0 flex flex-col bg-zinc-50 dark:bg-zinc-900/30 border-r border-zinc-200 dark:border-zinc-800 transition-colors duration-300">
+        <div class="h-14 flex items-center px-4 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+            <i class="ph-fill ph-terminal-window text-anthropic text-xl"></i>
+            <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-100" data-i18n="title">Claude Log Viewer</span>
+        </div>
+        <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 flex gap-2">
+            <div class="relative flex-1">
+                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm"></i>
+                <input id="search" type="text" class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-md py-1.5 pl-8 pr-3 text-xs text-zinc-800 dark:text-zinc-300 placeholder-zinc-400 font-mono focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors" data-i18n-placeholder="search_placeholder">
+            </div>
+            <button id="reload-btn" class="flex-shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors" title="Reload sessions">
+                <i class="ph ph-arrows-clockwise text-base"></i>
+            </button>
+        </div>
+        <div id="session-list" class="flex-1 overflow-y-auto py-2">
+            <div class="text-xs text-zinc-400 px-4 py-4" data-i18n="loading">Loading...</div>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 flex flex-col min-w-0">
+        <header class="h-14 flex items-center justify-between px-6 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-lg sticky top-0 z-10 transition-colors duration-300">
+            <div class="flex items-center gap-2 min-w-0">
+                <h1 id="session-title" class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[30ch]" data-i18n="select_session">Select a session</h1>
+                <button id="rename-btn" class="hidden flex-shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Rename session">
+                    <i class="ph ph-pencil text-sm"></i>
+                </button>
+                <span id="token-badge" class="hidden px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 flex-shrink-0 whitespace-nowrap"></span>
+            </div>
+            <div class="flex items-center gap-1 flex-shrink-0">
+                <button id="lang-toggle" class="px-2 py-1 rounded text-[11px] font-mono text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">EN</button>
+                <button id="theme-toggle" class="p-2 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Toggle theme">
+                    <i class="ph ph-sun text-lg" id="icon-light"></i>
+                    <i class="ph ph-moon text-lg hidden" id="icon-dark"></i>
+                    <span id="icon-auto" class="hidden text-[10px] font-mono font-bold">AUTO</span>
+                </button>
+            </div>
+        </header>
+
+        <div id="chat" class="flex-1 overflow-y-auto px-10 py-8 flex flex-col gap-6">
+            <div class="flex flex-col items-center justify-center h-full text-zinc-400 dark:text-zinc-600 text-sm gap-2">
+                <i class="ph ph-chat-dots text-4xl"></i>
+                <span data-i18n="empty_state">Select a session from the sidebar</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- RENAME MODAL -->
+    <div id="rename-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl w-[400px] p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100" data-i18n="rename_title">Rename Session</h2>
+                <button id="rename-close" class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="relative mb-1">
+                <input id="rename-input" type="text" maxlength="30" class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md py-2 px-3 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors pr-16">
+                <span id="rename-count" class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-zinc-400">0/30</span>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="rename-cancel" class="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors" data-i18n="cancel">Cancel</button>
+                <button id="rename-save" class="px-3 py-1.5 bg-zinc-800 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-800 text-xs font-medium rounded-md hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors" data-i18n="save">Save</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    const TRANSLATIONS = {
+        en: {
+            title: "Claude Log Viewer", loading: "Loading...",
+            search_placeholder: "Search by session name...",
+            rename_title: "Rename Session", cancel: "Cancel", save: "Save",
+            select_session: "Select a session",
+            empty_state: "Select a session from the sidebar",
+            today: "Today", yesterday: "Yesterday",
+            tokens: "tokens", turns: "turns",
+            manage_paths: "Manage Log Paths", add: "Add",
+            default_path: "Default",
+            rename_prompt: "New session name:",
+            tool_bash: "Bash", tool_read: "Read", tool_edit: "Edit",
+            tool_write: "Write", tool_glob: "Glob", tool_grep: "Grep",
+            tool_agent: "Agent", tool_other: "Tool",
+            tool_search: "Search", tool_task: "Task",
+        },
+        ja: {
+            title: "Claude ログビューアー", loading: "読み込み中...",
+            search_placeholder: "セッション名から検索...",
+            rename_title: "セッション名を変更", cancel: "キャンセル", save: "保存",
+            select_session: "セッションを選択",
+            empty_state: "サイドバーからセッションを選択してください",
+            today: "今日", yesterday: "昨日",
+            tokens: "トークン", turns: "ターン",
+            manage_paths: "ログパスの管理", add: "追加",
+            default_path: "デフォルト",
+            rename_prompt: "セッション名を変更:",
+            tool_bash: "Bash", tool_read: "Read", tool_edit: "Edit",
+            tool_write: "Write", tool_glob: "Glob", tool_grep: "Grep",
+            tool_agent: "Agent", tool_other: "ツール",
+            tool_search: "Search", tool_task: "Task",
+        }
+    };
+
+    let lang = localStorage.getItem('lang') || 'en';
+    let currentSession = null;
+    let allSessions = [];
+    // Track collapsed state per project key
+    const collapsedProjects = new Set();
+
+    function t(key) { return TRANSLATIONS[lang][key] || key; }
+
+    function applyI18n() {
+        document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => el.placeholder = t(el.dataset.i18nPlaceholder));
+        document.getElementById('lang-toggle').textContent = lang === 'en' ? 'JA' : 'EN';
+        document.documentElement.lang = lang;
+    }
+
+    function toolLabel(name) {
+        const map = { Bash: t('tool_bash'), Read: t('tool_read'), Edit: t('tool_edit'),
+            Write: t('tool_write'), Glob: t('tool_glob'), Grep: t('tool_grep'),
+            Agent: t('tool_agent'), WebSearch: t('tool_search'), WebFetch: t('tool_search'),
+            TaskCreate: t('tool_task'), TaskUpdate: t('tool_task'), };
+        return map[name] || name;
+    }
+
+    function toolColor(name) {
+        const map = {
+            Bash: 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
+            Read: 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
+            Edit: 'text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
+            Write: 'text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
+            Glob: 'text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20',
+            Grep: 'text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20',
+            Agent: 'text-pink-700 dark:text-pink-400 bg-pink-50 dark:bg-pink-900/20',
+        };
+        return map[name] || 'text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800';
+    }
+
+    function toolIcon(name) {
+        const map = { Bash: 'ph-terminal-window', Read: 'ph-file-code', Edit: 'ph-pencil-simple',
+            Write: 'ph-pencil-line', Glob: 'ph-folder-open', Grep: 'ph-magnifying-glass',
+            Agent: 'ph-robot', WebSearch: 'ph-globe', WebFetch: 'ph-globe',
+            TaskCreate: 'ph-check-square', TaskUpdate: 'ph-check-square', };
+        return map[name] || 'ph-wrench';
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function formatDate(isoStr) {
+        const d = new Date(isoStr);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+        const target = new Date(d); target.setHours(0,0,0,0);
+
+        if (target >= today) return t('today');
+        if (target >= yesterday) return t('yesterday');
+
+        const weekdays = lang === 'ja'
+            ? ['日','月','火','水','木','金','土']
+            : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const wd = weekdays[d.getDay()];
+
+        if (lang === 'ja') {
+            return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 (${wd})`;
+        }
+        return d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'numeric'}) + ` (${wd})`;
+    }
+
+    function renderItem(item) {
+        if (item.type === 'text') {
+            return `<div class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">${escapeHtml(item.text)}</div>`;
+        }
+        if (item.type === 'tool_use') {
+            const label = toolLabel(item.name);
+            const color = toolColor(item.name);
+            const icon = toolIcon(item.name);
+            const cmd = escapeHtml(String(item.cmd || '').slice(0, 120));
+            const full = escapeHtml(JSON.stringify(item.input, null, 2));
+            return `<details class="bg-white dark:bg-[#131316] border border-zinc-200 dark:border-zinc-800 rounded-md font-mono text-xs overflow-hidden w-full max-w-2xl">
+                <summary class="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 select-none transition-colors">
+                    <i class="ph-bold ph-caret-right caret text-[10px] text-zinc-400 dark:text-zinc-600 transition-transform duration-150"></i>
+                    <div class="flex items-center gap-1.5 ${color} px-1.5 rounded-sm flex-shrink-0">
+                        <i class="ph ${icon}"></i><span class="font-medium">${label}</span>
+                    </div>
+                    <span class="text-zinc-600 dark:text-zinc-400 truncate flex-1">${cmd}</span>
+                </summary>
+                <div class="p-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-black/60 text-zinc-600 dark:text-zinc-400 overflow-x-auto whitespace-pre text-[11px] leading-relaxed">${full}</div>
+            </details>`;
+        }
+        if (item.type === 'tool_result') {
+            return `<div class="text-[11px] font-mono text-zinc-500 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded px-2 py-1 whitespace-pre-wrap max-w-2xl overflow-x-auto">${escapeHtml(item.text)}</div>`;
+        }
+        return '';
+    }
+
+    function renderMessage(msg) {
+        const isUser = msg.role === 'user';
+        const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString(lang === 'ja' ? 'ja-JP' : 'en-US', {hour:'2-digit', minute:'2-digit'}) : '';
+
+        if (isUser) {
+            const textItems = msg.items.filter(i => i.type === 'text');
+            if (!textItems.length) return '';
+            return `<div class="flex flex-col self-end max-w-[75%] items-end">
+                <div class="text-[10px] font-mono text-zinc-400 mb-1">${ts}</div>
+                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(textItems.map(i=>i.text).join('\n'))}</div>
+            </div>`;
+        } else {
+            const itemsHtml = msg.items.map(renderItem).join('');
+            if (!itemsHtml.trim()) return '';
+            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9">
+                <div class="absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <i class="ph ph-robot text-anthropic text-sm"></i>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <div class="text-[10px] font-mono text-zinc-400 ml-1">${ts}</div>
+                    ${itemsHtml}
+                </div>
+            </div>`;
+        }
+    }
+
+    async function loadSession(session) {
+        currentSession = session;
+        // Update header
+        const titleEl = document.getElementById('session-title');
+        titleEl.textContent = session.display_name || session.id;
+        titleEl.title = session.display_name || session.id;
+        document.getElementById('token-badge').classList.add('hidden');
+        document.getElementById('rename-btn').classList.remove('hidden');
+        document.getElementById('chat').innerHTML = `<div class="text-xs text-zinc-400 px-2">${t('loading')}</div>`;
+        // Re-render sidebar to update active state
+        renderSidebar(allSessions);
+
+        const res = await fetch(`/api/sessions/${session.project_dir}/${session.id}`);
+        const data = await res.json();
+
+        const badge = document.getElementById('token-badge');
+        if (data.total_tokens > 0) {
+            badge.textContent = `${data.total_tokens.toLocaleString()} ${t('tokens')}`;
+            badge.classList.remove('hidden');
+        }
+        const html = data.messages.map(renderMessage).filter(Boolean).join('');
+        document.getElementById('chat').innerHTML = html || `<div class="text-zinc-400 text-sm text-center mt-20">${t('empty_state')}</div>`;
+    }
+
+    function groupSessions(sessions) {
+        // group by project, then by date
+        const byProject = {};
+        sessions.forEach(s => {
+            const key = s.project_dir;
+            if (!byProject[key]) byProject[key] = { name: s.project, sessions: [] };
+            byProject[key].sessions.push(s);
+        });
+
+        // within each project, group by date label
+        for (const key of Object.keys(byProject)) {
+            const dateGroups = {};
+            byProject[key].sessions.forEach(s => {
+                const label = formatDate(s.mtime);
+                if (!dateGroups[label]) dateGroups[label] = [];
+                dateGroups[label].push(s);
+            });
+            byProject[key].dateGroups = dateGroups;
+        }
+        return byProject;
+    }
+
+    function renderSidebar(sessions) {
+        const query = document.getElementById('search').value.toLowerCase();
+        const filtered = query
+            ? sessions.filter(s =>
+                s.display_name.toLowerCase().includes(query) ||
+                s.first_text.toLowerCase().includes(query) ||
+                s.project.toLowerCase().includes(query))
+            : sessions;
+
+        const byProject = groupSessions(filtered);
+        let html = '';
+
+        for (const [key, { name, dateGroups }] of Object.entries(byProject)) {
+            const isCollapsed = collapsedProjects.has(key);
+            const shortName = '~/' + name.split('/').slice(-2).join('/');
+            html += `<div class="mb-1">
+                <button class="w-full flex items-center gap-1.5 text-[11px] font-mono text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors rounded-md"
+                    onclick="toggleProject('${key}')">
+                    <i class="ph ${isCollapsed ? 'ph-folder' : 'ph-folder-open'} flex-shrink-0"></i>
+                    <span class="truncate text-left flex-1" title="${escapeHtml(name)}">${escapeHtml(shortName)}</span>
+                    <i class="ph ph-caret-${isCollapsed ? 'right' : 'down'} text-[10px] flex-shrink-0"></i>
+                </button>`;
+
+            if (!isCollapsed) {
+                for (const [dateLabel, dateSessions] of Object.entries(dateGroups)) {
+                    html += `<div class="mx-2 mt-2 mb-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-800"></div>
+                            <span class="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 whitespace-nowrap px-1">${escapeHtml(dateLabel)}</span>
+                            <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-800"></div>
+                        </div>`;
+                    dateSessions.forEach(s => {
+                        const isActive = currentSession && currentSession.id === s.id;
+                        const name20 = s.display_name.length > 20 ? s.display_name.slice(0, 20) + '…' : s.display_name;
+                        const sessionJson = escapeHtml(JSON.stringify(s));
+                        html += `<div class="relative flex flex-col px-2 py-2 mb-0.5 rounded-md cursor-pointer transition-colors ${isActive
+                                ? 'bg-white dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 shadow-sm'
+                                : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/30 border border-transparent'}"
+                            onclick='selectSession(${sessionJson})'>
+                            ${isActive ? '<div class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-anthropic rounded-r-full"></div>' : ''}
+                            <div class="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 pl-1">
+                                ${new Date(s.mtime).toLocaleTimeString(lang==='ja'?'ja-JP':'en-US',{hour:'2-digit',minute:'2-digit'})}
+                            </div>
+                            <span class="text-xs ${isActive ? 'font-medium text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400'} truncate pl-1" title="${escapeHtml(s.display_name)}">${escapeHtml(name20)}</span>
+                        </div>`;
+                    });
+                    html += `</div>`;
+                }
+            }
+            html += `</div>`;
+        }
+
+        document.getElementById('session-list').innerHTML = html || `<div class="text-xs text-zinc-400 px-4 py-4">No sessions found</div>`;
+    }
+
+    function toggleProject(key) {
+        if (collapsedProjects.has(key)) collapsedProjects.delete(key);
+        else collapsedProjects.add(key);
+        renderSidebar(allSessions);
+    }
+
+    function selectSession(session) {
+        loadSession(session);
+    }
+
+    let reloading = false;
+    async function reloadSessions() {
+        if (reloading) return;
+        reloading = true;
+        const btn = document.getElementById('reload-btn');
+        const icon = btn.querySelector('i');
+        icon.classList.add('animate-spin');
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/sessions');
+            allSessions = await res.json();
+            renderSidebar(allSessions);
+        } finally {
+            setTimeout(() => {
+                icon.classList.remove('animate-spin');
+                btn.disabled = false;
+                reloading = false;
+            }, 800);
+        }
+    }
+
+    function openRenameModal() {
+        if (!currentSession) return;
+        const input = document.getElementById('rename-input');
+        input.value = currentSession.display_name.slice(0, 30);
+        updateRenameCount();
+        document.getElementById('rename-modal').classList.remove('hidden');
+        input.focus(); input.select();
+    }
+
+    function updateRenameCount() {
+        const input = document.getElementById('rename-input');
+        const count = document.getElementById('rename-count');
+        const len = input.value.length;
+        count.textContent = `${len}/30`;
+        count.className = `absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono ${len >= 30 ? 'text-red-500' : 'text-zinc-400'}`;
+    }
+
+    async function saveRename() {
+        if (!currentSession) return;
+        const name = document.getElementById('rename-input').value.slice(0, 30).trim();
+        await fetch(`/api/sessions/${currentSession.id}/rename`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({name})
+        });
+        currentSession.display_name = name || currentSession.first_text || currentSession.id;
+        document.getElementById('session-title').textContent = currentSession.display_name;
+        document.getElementById('rename-modal').classList.add('hidden');
+        await reloadSessions();
+    }
+
+    async function init() {
+        applyI18n();
+        await reloadSessions();
+    }
+
+    // Theme: cycle through dark → light → auto
+    const themes = ['dark', 'light', 'auto'];
+    let themeMode = localStorage.getItem('theme') || 'auto';
+
+    function applyTheme() {
+        const html = document.documentElement;
+        const li = document.getElementById('icon-light');
+        const di = document.getElementById('icon-dark');
+        const ai = document.getElementById('icon-auto');
+        if (themeMode === 'dark') {
+            html.classList.add('dark');
+            li.classList.add('hidden'); di.classList.remove('hidden'); ai.classList.add('hidden');
+        } else if (themeMode === 'light') {
+            html.classList.remove('dark');
+            li.classList.remove('hidden'); di.classList.add('hidden'); ai.classList.add('hidden');
+        } else { // auto
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            prefersDark ? html.classList.add('dark') : html.classList.remove('dark');
+            li.classList.add('hidden'); di.classList.add('hidden'); ai.classList.remove('hidden');
+        }
+        localStorage.setItem('theme', themeMode);
+    }
+    applyTheme();
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+        themeMode = themes[(themes.indexOf(themeMode) + 1) % themes.length];
+        applyTheme();
+    });
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (themeMode === 'auto') applyTheme();
+    });
+    document.getElementById('lang-toggle').addEventListener('click', () => {
+        lang = lang === 'en' ? 'ja' : 'en';
+        localStorage.setItem('lang', lang);
+        applyI18n();
+        renderSidebar(allSessions);
+        if (currentSession) {
+            document.getElementById('session-title').textContent = currentSession.display_name;
+        }
+    });
+    document.getElementById('search').addEventListener('input', () => renderSidebar(allSessions));
+    document.getElementById('rename-btn').addEventListener('click', openRenameModal);
+    document.getElementById('rename-close').addEventListener('click', () => document.getElementById('rename-modal').classList.add('hidden'));
+    document.getElementById('rename-cancel').addEventListener('click', () => document.getElementById('rename-modal').classList.add('hidden'));
+    document.getElementById('rename-save').addEventListener('click', saveRename);
+    document.getElementById('rename-input').addEventListener('input', updateRenameCount);
+    document.getElementById('rename-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') document.getElementById('rename-modal').classList.add('hidden'); });
+    document.getElementById('reload-btn').addEventListener('click', reloadSessions);
+
+    init();
+    </script>
+</body>
+</html>
