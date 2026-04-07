@@ -223,7 +223,9 @@ def list_sessions():
 @app.get("/api/sessions/{project_dir}/{session_id}")
 def get_session(project_dir: str, session_id: str):
     for log_dir in get_log_dirs():
-        path = log_dir / project_dir / f"{session_id}.jsonl"
+        path = (log_dir / project_dir / f"{session_id}.jsonl").resolve()
+        if not str(path).startswith(str(log_dir.resolve())):
+            raise HTTPException(status_code=400, detail="Invalid path")
         if path.exists():
             return JSONResponse(parse_session(path))
     raise HTTPException(status_code=404, detail="Session not found")
