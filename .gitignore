@@ -1,2 +1,23 @@
+# AIDesigner
 .aidesigner/*
 !.aidesigner/.gitkeep
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+package-lock.json
+package.json
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
