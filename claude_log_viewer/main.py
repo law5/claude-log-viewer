@@ -45,8 +45,11 @@ def get_log_dirs() -> list[Path]:
     return dirs
 
 
-def get_first_user_text(path: Path) -> str:
-    """Read first user text message from a .jsonl file."""
+def get_session_meta(path: Path) -> dict:
+    """Extract first user text, first timestamp, and last timestamp from a .jsonl file."""
+    first_text = ""
+    first_ts = ""
+    last_ts = ""
     try:
         with open(path) as f:
             for line in f:
@@ -57,23 +60,30 @@ def get_first_user_text(path: Path) -> str:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if entry.get("type") != "user":
+                if entry.get("type") not in ("user", "assistant"):
                     continue
-                message = entry.get("message", {})
-                if not isinstance(message, dict):
-                    continue
-                content = message.get("content")
-                if isinstance(content, str) and content.strip():
-                    return content.strip()
-                if isinstance(content, list):
-                    for c in content:
-                        if isinstance(c, dict) and c.get("type") == "text":
-                            text = c.get("text", "").strip()
-                            if text:
-                                return text
+                ts = entry.get("timestamp", "")
+                if ts:
+                    if not first_ts:
+                        first_ts = ts
+                    last_ts = ts
+                if not first_text and entry.get("type") == "user":
+                    message = entry.get("message", {})
+                    if not isinstance(message, dict):
+                        continue
+                    content = message.get("content")
+                    if isinstance(content, str) and content.strip():
+                        first_text = content.strip()
+                    elif isinstance(content, list):
+                        for c in content:
+                            if isinstance(c, dict) and c.get("type") == "text":
+                                text = c.get("text", "").strip()
+                                if text:
+                                    first_text = text
+                                    break
     except Exception:
         pass
-    return ""
+    return {"first_text": first_text, "first_ts": first_ts, "last_ts": last_ts}
 
 
 def parse_session(path: Path) -> dict:
@@ -178,13 +188,15 @@ def get_sessions() -> list[dict]:
                 stat = jsonl_file.stat()
                 mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
                 session_id = jsonl_file.stem
-                first_text = get_first_user_text(jsonl_file)
-                display_name = custom_names.get(session_id) or first_text or session_id[:20]
+                meta = get_session_meta(jsonl_file)
+                display_name = custom_names.get(session_id) or meta["first_text"] or session_id[:20]
 
                 sessions.append({
                     "id": session_id,
                     "display_name": display_name,
-                    "first_text": first_text,
+                    "first_text": meta["first_text"],
+                    "first_ts": meta["first_ts"],
+                    "last_ts": meta["last_ts"],
                     "project": project_name,
                     "project_dir": project_dir.name,
                     "source_dir": source_dir,

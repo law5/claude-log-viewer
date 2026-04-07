@@ -343,7 +343,9 @@
                             onclick='selectSession(${sessionJson})'>
                             ${isActive ? '<div class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-anthropic rounded-r-full"></div>' : ''}
                             <div class="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 pl-1">
-                                ${new Date(s.mtime).toLocaleTimeString(lang==='ja'?'ja-JP':'en-US',{hour:'2-digit',minute:'2-digit'})}
+                                ${s.first_ts && s.last_ts && s.first_ts !== s.last_ts
+                                    ? new Date(s.first_ts).toLocaleTimeString(lang==='ja'?'ja-JP':'en-US',{hour:'2-digit',minute:'2-digit'}) + '〜' + new Date(s.last_ts).toLocaleTimeString(lang==='ja'?'ja-JP':'en-US',{hour:'2-digit',minute:'2-digit'})
+                                    : s.first_ts ? new Date(s.first_ts).toLocaleTimeString(lang==='ja'?'ja-JP':'en-US',{hour:'2-digit',minute:'2-digit'}) : ''}
                             </div>
                             <span class="text-xs ${isActive ? 'font-medium text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400'} truncate pl-1" title="${escapeHtml(s.display_name)}">${escapeHtml(name20)}</span>
                         </div>`;
