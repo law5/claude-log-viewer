@@ -18,6 +18,7 @@ Claude Code automatically saves all session logs to `~/.claude/projects/`. This 
 - Session list grouped by project and date, with time range display
 - Session rename support
 - Token count per session
+- **Playback mode** — replay a session with smooth bubble animations (▶ play/pause, ⏹ stop, speed slider)
 - Dark / Light / AUTO theme
 - EN / JA UI language toggle
 - Reload button to pick up new sessions
@@ -53,6 +54,32 @@ python3 -m claude_log_viewer.main
 ```
 
 Then open http://127.0.0.1:4512 in your browser.
+
+**Quick alias (optional)**
+
+For one-command startup, install the package and add a shell alias:
+
+```bash
+cd claude-log-viewer
+source .venv/bin/activate
+pip install -e .
+```
+
+Add to your `~/.zshrc` (or `~/.bashrc`):
+
+```bash
+alias clv='source ~/claude-log-viewer/.venv/bin/activate && claude-log-viewer'
+```
+
+Then just run `clv` from anywhere.
+
+### Playback mode
+
+Click the ▶ button next to the session title to replay the conversation with a smooth bubble animation.
+
+- **▶ / ⏸** — play or pause. Pausing keeps your position; pressing ▶ again resumes from where you stopped
+- **⏹** — stop and show all messages instantly
+- **Speed slider** — drag to adjust playback speed (0.05x slow to 4x fast)
 
 ### Adding custom session files
 
@@ -95,6 +122,7 @@ Claude Code はセッションのログを自動的に `~/.claude/projects/` に
 - プロジェクト別・日付別セッション一覧（時間帯表示付き）
 - セッション名の手動変更
 - セッションごとのトークン数表示
+- **再生モード** — セッションを吹き出しアニメーションで追体験（▶ 再生/一時停止、⏹ 停止、速度スライダー）
 - ダーク / ライト / AUTO テーマ切り替え
 - EN / JA 言語切り替え
 - リロードボタン（新しいセッションを再読み込み）
@@ -130,6 +158,32 @@ python3 -m claude_log_viewer.main
 ```
 
 起動したら http://127.0.0.1:4512 をブラウザで開いてください。
+
+**ワンコマンド起動（オプション）**
+
+パッケージをインストールしてシェルエイリアスを設定すると、`clv` 一発で起動できます：
+
+```bash
+cd claude-log-viewer
+source .venv/bin/activate
+pip install -e .
+```
+
+`~/.zshrc`（または `~/.bashrc`）に追加：
+
+```bash
+alias clv='source ~/claude-log-viewer/.venv/bin/activate && claude-log-viewer'
+```
+
+以降は `clv` だけで起動できます。
+
+### 再生モード
+
+セッションタイトル横の ▶ ボタンを押すと、会話を吹き出しアニメーションで追体験できます。
+
+- **▶ / ⏸** — 再生または一時停止。一時停止した位置から再開できます
+- **⏹** — 停止して全メッセージを即時表示
+- **速度スライダー** — ドラッグして再生速度を調整（0.05x〜4x）
 
 ### カスタムファイルの追加
 

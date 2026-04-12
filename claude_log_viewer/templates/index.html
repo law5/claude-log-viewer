@@ -28,6 +28,23 @@
         ::-webkit-scrollbar-track { background: transparent; }
         .dark ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
         ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
+
+        /* Playback animation */
+        @keyframes msg-appear {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .msg-hidden { opacity: 0; }
+        .msg-animate { animation: msg-appear 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        .msg-visible { opacity: 1; }
+
+        /* Speed slider styling */
+        .speed-slider { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; outline: none; cursor: pointer; }
+        .speed-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; cursor: pointer; }
+        .dark .speed-slider { background: #3f3f46; }
+        .speed-slider { background: #d4d4d8; }
+        .dark .speed-slider::-webkit-slider-thumb { background: #d97d54; }
+        .speed-slider::-webkit-slider-thumb { background: #d97d54; }
     </style>
 </head>
 <body class="flex h-full overflow-hidden bg-white dark:bg-[#09090b] text-zinc-800 dark:text-zinc-300 transition-colors duration-300">
@@ -60,6 +77,17 @@
                 <button id="rename-btn" class="hidden flex-shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Rename session">
                     <i class="ph ph-pencil text-sm"></i>
                 </button>
+                <button id="playback-btn" class="hidden flex-shrink-0 p-1 rounded text-zinc-400 hover:text-anthropic hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Play / Pause">
+                    <i class="ph ph-play text-sm" id="playback-icon"></i>
+                </button>
+                <button id="stop-btn" class="hidden flex-shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Stop">
+                    <i class="ph ph-stop text-sm"></i>
+                </button>
+                <div id="playback-controls" class="hidden items-center gap-2 flex-shrink-0">
+                    <i class="ph ph-gauge text-xs text-zinc-400"></i>
+                    <input id="speed-slider" type="range" min="1" max="20" value="10" class="speed-slider w-20">
+                    <span id="speed-label" class="text-[10px] font-mono text-zinc-400 w-8">1.0x</span>
+                </div>
                 <span id="token-badge" class="hidden px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 flex-shrink-0 whitespace-nowrap"></span>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">
@@ -140,6 +168,12 @@
     let allSessions = [];
     // Track collapsed state per project key
     const collapsedProjects = new Set();
+
+    // Playback state: 'idle' | 'playing' | 'paused'
+    let playbackState = 'idle';
+    let playbackTimer = null;
+    let playbackIndex = 0; // next message to reveal
+    let playbackSpeed = 1.0; // 1.0x = 1000ms base delay per message
 
     function t(key) { return TRANSLATIONS[lang][key] || key; }
 
@@ -256,7 +290,86 @@
         }
     }
 
+    function setPlaybackIcon(icon) {
+        const el = document.getElementById('playback-icon');
+        el.classList.remove('ph-play', 'ph-pause');
+        el.classList.add(icon === 'pause' ? 'ph-pause' : 'ph-play');
+    }
+
+    function getPlaybackDelay() {
+        return 1000 / playbackSpeed;
+    }
+
+    function revealNext() {
+        const messages = document.querySelectorAll('#chat > [data-msg]');
+        if (playbackIndex >= messages.length) {
+            // Playback finished
+            playbackState = 'idle';
+            playbackIndex = 0;
+            setPlaybackIcon('play');
+            document.getElementById('stop-btn').classList.add('hidden');
+            return;
+        }
+        const el = messages[playbackIndex];
+        el.classList.remove('msg-hidden');
+        el.classList.add('msg-animate');
+        el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        playbackIndex++;
+
+        playbackTimer = setTimeout(revealNext, getPlaybackDelay());
+    }
+
+    function playbackPlay() {
+        const messages = document.querySelectorAll('#chat > [data-msg]');
+        if (!messages.length) return;
+
+        if (playbackState === 'idle') {
+            // Fresh start: hide all messages, reset index
+            messages.forEach(el => {
+                el.classList.remove('msg-visible', 'msg-animate');
+                el.classList.add('msg-hidden');
+            });
+            playbackIndex = 0;
+            document.getElementById('chat').scrollTop = 0;
+        }
+        // Start or resume
+        playbackState = 'playing';
+        setPlaybackIcon('pause');
+        document.getElementById('stop-btn').classList.remove('hidden');
+        revealNext();
+    }
+
+    function playbackPause() {
+        playbackState = 'paused';
+        if (playbackTimer) { clearTimeout(playbackTimer); playbackTimer = null; }
+        setPlaybackIcon('play');
+    }
+
+    function playbackStop() {
+        if (playbackTimer) { clearTimeout(playbackTimer); playbackTimer = null; }
+        playbackState = 'idle';
+        playbackIndex = 0;
+        setPlaybackIcon('play');
+        document.getElementById('stop-btn').classList.add('hidden');
+        // Show all messages instantly
+        document.querySelectorAll('#chat > [data-msg]').forEach(el => {
+            el.classList.remove('msg-hidden', 'msg-animate');
+            el.classList.add('msg-visible');
+        });
+    }
+
+    function togglePlayback() {
+        if (playbackState === 'playing') {
+            playbackPause();
+        } else {
+            playbackPlay();
+        }
+    }
+
     async function loadSession(session) {
+        // Stop any running playback
+        playbackStop();
+
         currentSession = session;
         // Update header
         const titleEl = document.getElementById('session-title');
@@ -264,6 +377,9 @@
         titleEl.title = session.display_name || session.id;
         document.getElementById('token-badge').classList.add('hidden');
         document.getElementById('rename-btn').classList.remove('hidden');
+        document.getElementById('playback-btn').classList.remove('hidden');
+        document.getElementById('playback-controls').classList.remove('hidden');
+        document.getElementById('playback-controls').classList.add('flex');
         document.getElementById('chat').innerHTML = `<div class="text-xs text-zinc-400 px-2">${t('loading')}</div>`;
         // Re-render sidebar to update active state
         renderSidebar(allSessions);
@@ -278,6 +394,13 @@
         }
         const html = data.messages.map(renderMessage).filter(Boolean).join('');
         document.getElementById('chat').innerHTML = html || `<div class="text-zinc-400 text-sm text-center mt-20">${t('empty_state')}</div>`;
+
+        // Wrap each message for playback control
+        const chat = document.getElementById('chat');
+        Array.from(chat.children).forEach(el => {
+            el.setAttribute('data-msg', '1');
+            el.classList.add('msg-visible');
+        });
     }
 
     function groupSessions(sessions) {
@@ -474,6 +597,18 @@
     document.getElementById('rename-input').addEventListener('input', updateRenameCount);
     document.getElementById('rename-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') document.getElementById('rename-modal').classList.add('hidden'); });
     document.getElementById('reload-btn').addEventListener('click', reloadSessions);
+    document.getElementById('playback-btn').addEventListener('click', togglePlayback);
+    document.getElementById('stop-btn').addEventListener('click', playbackStop);
+    document.getElementById('speed-slider').addEventListener('input', (e) => {
+        // Slider: 1-20, mapped to 0.05x - 4x
+        // 1=0.05x, 5=0.25x, 10=1x, 15=2x, 20=4x (exponential scale)
+        const v = parseInt(e.target.value);
+        playbackSpeed = Math.pow(2, (v - 10) / 5);
+        const label = playbackSpeed < 1
+            ? playbackSpeed.toFixed(2) + 'x'
+            : playbackSpeed.toFixed(1) + 'x';
+        document.getElementById('speed-label').textContent = label;
+    });
 
     init();
     </script>
