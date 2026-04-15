@@ -46,6 +46,9 @@
         .dark .speed-slider::-webkit-slider-thumb { background: #d97d54; }
         .speed-slider::-webkit-slider-thumb { background: #d97d54; }
 
+        /* Line clamp fallback */
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
         /* Search highlight */
         mark.search-hit { background: #fbbf24; color: #000; border-radius: 2px; padding: 0 1px; }
         .dark mark.search-hit { background: #b45309; color: #fff; }
@@ -315,21 +318,21 @@
         return '';
     }
 
-    function renderMessage(msg) {
+    function renderMessage(msg, index) {
         const isUser = msg.role === 'user';
         const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString(lang === 'ja' ? 'ja-JP' : 'en-US', {hour:'2-digit', minute:'2-digit'}) : '';
 
         if (isUser) {
             const textItems = msg.items.filter(i => i.type === 'text');
             if (!textItems.length) return '';
-            return `<div class="flex flex-col self-end max-w-[75%] items-end">
+            return `<div class="flex flex-col self-end max-w-[75%] items-end" data-msg-index="${index}">
                 <div class="text-[10px] font-mono text-zinc-400 mb-1">${ts}</div>
                 <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(textItems.map(i=>i.text).join('\n'))}</div>
             </div>`;
         } else {
             const itemsHtml = msg.items.map(renderItem).join('');
             if (!itemsHtml.trim()) return '';
-            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9">
+            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9" data-msg-index="${index}">
                 <div class="absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
                     <i class="ph ph-robot text-anthropic text-sm"></i>
                 </div>
@@ -634,22 +637,60 @@
 
     function renderSidebar(sessions) {
         const query = document.getElementById('search').value.toLowerCase();
-        let filtered;
 
+        // Content search mode: render search results view
         if (searchMode === 'content' && contentSearchResults) {
-            // Content search mode: show only sessions with hits
-            const hitSessionIds = new Set(contentSearchResults.map(r => r.session_id));
-            filtered = sessions.filter(s => hitSessionIds.has(s.id));
-        } else if (searchMode === 'session' && query) {
-            // Session name mode: incremental filter (existing behavior)
-            filtered = sessions.filter(s =>
-                s.display_name.toLowerCase().includes(query) ||
-                s.first_text.toLowerCase().includes(query) ||
-                s.project.toLowerCase().includes(query));
-        } else {
-            filtered = sessions;
+            renderSearchResults(sessions);
+            return;
         }
 
+        // Session name mode: incremental filter (existing behavior)
+        const filtered = query
+            ? sessions.filter(s =>
+                s.display_name.toLowerCase().includes(query) ||
+                s.first_text.toLowerCase().includes(query) ||
+                s.project.toLowerCase().includes(query))
+            : sessions;
+
+        renderSessionList(filtered);
+    }
+
+    function renderSearchResults(sessions) {
+        const sessionMap = {};
+        sessions.forEach(s => { sessionMap[s.id] = s; });
+
+        let html = '';
+        contentSearchResults.forEach(result => {
+            const session = sessionMap[result.session_id];
+            if (!session) return;
+            const name20 = session.display_name.length > 20 ? session.display_name.slice(0, 20) + '…' : session.display_name;
+            const isActive = currentSession && currentSession.id === session.id;
+
+            html += `<div class="mx-2 mb-2">
+                <div class="flex items-center gap-1.5 px-2 py-1.5 rounded-md ${isActive ? 'bg-white dark:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-600' : 'bg-zinc-200/70 dark:bg-zinc-700/40 border border-zinc-300/50 dark:border-zinc-600/30'}">
+                    <i class="ph ph-chat-dots text-[11px] text-zinc-500 dark:text-zinc-400 flex-shrink-0"></i>
+                    <span class="text-[11px] font-medium ${isActive ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-200'} truncate" title="${escapeHtml(session.display_name)}">${escapeHtml(name20)}</span>
+                    <span class="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 ml-auto flex-shrink-0">${result.hit_count} hits</span>
+                </div>`;
+
+            result.hits.forEach(hit => {
+                const sessionJson = escapeHtml(JSON.stringify(session));
+                const roleIcon = hit.role === 'user' ? 'ph-user' : 'ph-robot';
+                const roleColor = hit.role === 'user' ? 'text-blue-400' : 'text-anthropic';
+                html += `<div class="flex gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
+                    onclick='selectSearchHit(${sessionJson}, ${hit.msg_index})'>
+                    <i class="ph ${roleIcon} ${roleColor} text-[10px] mt-0.5 flex-shrink-0"></i>
+                    <span class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug line-clamp-2">${escapeHtml(hit.snippet)}</span>
+                </div>`;
+            });
+
+            html += `</div>`;
+        });
+
+        document.getElementById('session-list').innerHTML = html || `<div class="text-xs text-zinc-400 px-4 py-4">No results</div>`;
+    }
+
+    function renderSessionList(filtered) {
         const byProject = groupSessions(filtered);
         let html = '';
 
@@ -706,6 +747,22 @@
 
     function selectSession(session) {
         loadSession(session);
+    }
+
+    async function selectSearchHit(session, msgIndex) {
+        // Load session if not already loaded
+        if (!currentSession || currentSession.id !== session.id) {
+            await loadSession(session);
+        }
+        // Find the target message by data-msg-index attribute
+        const target = document.querySelector(`[data-msg-index="${msgIndex}"]`);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Brief flash effect
+            target.classList.add('ring-2', 'ring-anthropic/50', 'rounded-lg');
+            setTimeout(() => target.classList.remove('ring-2', 'ring-anthropic/50', 'rounded-lg'), 2000);
+        }
+        renderSidebar(allSessions);
     }
 
     let reloading = false;

@@ -261,7 +261,11 @@ def search_content(q: str = ""):
 
 
 def _search_session(path: Path, query: str) -> list[dict]:
-    """Search a single session file for query matches in text content."""
+    """Search a single session file for query matches in text content.
+
+    msg_index must match the index in parse_session()'s messages array,
+    so we replicate the exact same filtering logic here.
+    """
     hits = []
     msg_index = -1
     try:
@@ -274,9 +278,9 @@ def _search_session(path: Path, query: str) -> list[dict]:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if entry.get("type") not in ("user", "assistant"):
+                msg_type = entry.get("type")
+                if msg_type not in ("user", "assistant"):
                     continue
-                msg_index += 1
                 message = entry.get("message", {})
                 if not isinstance(message, dict):
                     continue
@@ -287,24 +291,37 @@ def _search_session(path: Path, query: str) -> list[dict]:
                     content = [{"type": "text", "text": content}]
                 if not isinstance(content, list):
                     continue
+
+                # Check if this entry would produce items in parse_session
+                has_items = any(
+                    isinstance(c, dict) and (
+                        (c.get("type") == "text" and c.get("text"))
+                        or c.get("type") in ("tool_use", "tool_result")
+                    )
+                    for c in content
+                )
+                if not has_items:
+                    continue
+
+                # Only count messages that parse_session would include
+                msg_index += 1
+
+                # Search text content
                 for c in content:
-                    if not isinstance(c, dict):
-                        continue
-                    if c.get("type") != "text":
+                    if not isinstance(c, dict) or c.get("type") != "text":
                         continue
                     text = c.get("text", "")
                     if query in text.lower():
-                        # スニペット: ヒット箇所の前後40文字
                         idx = text.lower().index(query)
                         start = max(0, idx - 40)
                         end = min(len(text), idx + len(query) + 40)
                         snippet = ("…" if start > 0 else "") + text[start:end] + ("…" if end < len(text) else "")
                         hits.append({
                             "msg_index": msg_index,
-                            "role": entry.get("type"),
+                            "role": msg_type,
                             "snippet": snippet,
                         })
-                        break  # 1メッセージにつき1ヒットで十分
+                        break
     except Exception:
         pass
     return hits
