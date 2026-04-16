@@ -456,8 +456,8 @@
             el.classList.add('msg-visible');
         });
 
-        // Apply search highlights if content search is active
-        if (searchMode === 'content' && contentSearchQuery) {
+        // Apply search highlights if content search is active (2+ chars only)
+        if (searchMode === 'content' && contentSearchQuery && contentSearchQuery.length >= 2) {
             applyHighlights(contentSearchQuery);
         }
     }
@@ -516,7 +516,7 @@
             // Show hit count
             const totalHits = results.reduce((sum, r) => sum + r.hit_count, 0);
             const hitCountEl = document.getElementById('search-hit-count');
-            hitCountEl.textContent = `${results.length} ${lang === 'ja' ? 'セッション' : 'sessions'} / ${totalHits} ${lang === 'ja' ? '件' : 'hits'}`;
+            hitCountEl.textContent = `${results.length} sessions / ${totalHits} hits`;
             hitCountEl.classList.remove('hidden');
 
             renderSidebar(allSessions);
@@ -535,6 +535,7 @@
 
     function applyHighlights(query) {
         if (!query) return;
+        clearHighlights();
         const chat = document.getElementById('chat');
         const walker = document.createTreeWalker(chat, NodeFilter.SHOW_TEXT, null);
         const textNodes = [];
@@ -578,7 +579,7 @@
         if (currentHighlightIndex >= 0) {
             counter.textContent = `${currentHighlightIndex + 1}/${marks.length}`;
         } else {
-            counter.textContent = `${marks.length} ${lang === 'ja' ? '件' : 'hits'}`;
+            counter.textContent = `${marks.length} hits`;
         }
     }
 
@@ -674,11 +675,10 @@
                 </div>`;
 
             result.hits.forEach(hit => {
-                const sessionJson = escapeHtml(JSON.stringify(session));
                 const roleIcon = hit.role === 'user' ? 'ph-user' : 'ph-robot';
                 const roleColor = hit.role === 'user' ? 'text-blue-400' : 'text-anthropic';
-                html += `<div class="flex gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
-                    onclick='selectSearchHit(${sessionJson}, ${hit.msg_index})'>
+                html += `<div class="search-hit-item flex gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
+                    data-session-id="${escapeHtml(session.id)}" data-project-dir="${escapeHtml(session.project_dir)}" data-msg-index="${hit.msg_index}">
                     <i class="ph ${roleIcon} ${roleColor} text-[10px] mt-0.5 flex-shrink-0"></i>
                     <span class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug line-clamp-2">${escapeHtml(hit.snippet)}</span>
                 </div>`;
@@ -749,26 +749,40 @@
         loadSession(session);
     }
 
-    async function selectSearchHit(session, msgIndex) {
-        // Load session if not already loaded
+    async function selectSearchHit(sessionId, projectDir, msgIndex) {
+        const session = allSessions.find(s => s.id === sessionId && s.project_dir === projectDir);
+        if (!session) return;
+
+        // Load session only if different from current
         if (!currentSession || currentSession.id !== session.id) {
             await loadSession(session);
         }
-        // Find the target message by data-msg-index attribute
+
+        // Scroll to target message
         const target = document.querySelector(`[data-msg-index="${msgIndex}"]`);
         if (target) {
+            // Clear previous flash
+            document.querySelectorAll('.ring-2.ring-anthropic\\/50').forEach(el => {
+                el.classList.remove('ring-2', 'ring-anthropic/50', 'rounded-lg');
+            });
             target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Brief flash effect
             target.classList.add('ring-2', 'ring-anthropic/50', 'rounded-lg');
             setTimeout(() => target.classList.remove('ring-2', 'ring-anthropic/50', 'rounded-lg'), 2000);
         }
-        renderSidebar(allSessions);
     }
 
     let reloading = false;
     async function reloadSessions() {
         if (reloading) return;
         reloading = true;
+        // Reset search state
+        contentSearchResults = null;
+        contentSearchQuery = '';
+        document.getElementById('search').value = '';
+        document.getElementById('search-hit-count').classList.add('hidden');
+        clearHighlights();
+        if (searchMode === 'content') setSearchMode('session');
+
         const btn = document.getElementById('reload-btn');
         const icon = btn.querySelector('i');
         icon.classList.add('animate-spin');
@@ -880,6 +894,12 @@
     document.getElementById('rename-input').addEventListener('input', updateRenameCount);
     document.getElementById('rename-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') document.getElementById('rename-modal').classList.add('hidden'); });
     document.getElementById('reload-btn').addEventListener('click', reloadSessions);
+    document.getElementById('session-list').addEventListener('click', (e) => {
+        const item = e.target.closest('.search-hit-item');
+        if (item) {
+            selectSearchHit(item.dataset.sessionId, item.dataset.projectDir, parseInt(item.dataset.msgIndex));
+        }
+    });
     document.getElementById('playback-btn').addEventListener('click', togglePlayback);
     document.getElementById('stop-btn').addEventListener('click', playbackStop);
     document.getElementById('speed-slider').addEventListener('input', (e) => {

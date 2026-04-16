@@ -236,7 +236,7 @@ def get_session(project_dir: str, session_id: str):
 def search_content(q: str = ""):
     """Search message content across all sessions."""
     query = q.strip().lower()
-    if not query:
+    if not query or len(query) < 2:
         return JSONResponse([])
 
     results = []
@@ -255,7 +255,7 @@ def search_content(q: str = ""):
                         "session_id": session_id,
                         "project_dir": project_dir.name,
                         "hit_count": len(hits),
-                        "hits": hits[:20],  # 1セッションあたり最大20件
+                        "hits": hits[:20],
                     })
     return JSONResponse(results)
 
