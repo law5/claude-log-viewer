@@ -16,6 +16,7 @@ Claude Code automatically saves all session logs to `~/.claude/projects/`. This 
 - Chat-style timeline (user messages on the right, assistant on the left)
 - Tool calls (Bash, Read, Edit, etc.) shown as collapsible rows
 - Session list grouped by project and date, with time range display
+- **Search** — two modes: session name (incremental) and content (full-text across all sessions). Hits are highlighted in-context with jump navigation
 - Session rename support
 - Token count per session
 - **Playback mode** — replay a session with smooth bubble animations (▶ play/pause, ⏹ stop, speed slider)
@@ -120,6 +121,7 @@ Claude Code はセッションのログを自動的に `~/.claude/projects/` に
 - チャット形式のタイムライン表示（ユーザー右・AIアシスタント左）
 - ツール呼び出し（Bash, Read, Edit 等）を折りたたみ行で表示
 - プロジェクト別・日付別セッション一覧（時間帯表示付き）
+- **検索** — セッション名検索（インクリメンタル）と本文検索（全セッション横断）の2モード。ヒット箇所をハイライト表示＆ジャンプナビ付き
 - セッション名の手動変更
 - セッションごとのトークン数表示
 - **再生モード** — セッションを吹き出しアニメーションで追体験（▶ 再生/一時停止、⏹ 停止、速度スライダー）

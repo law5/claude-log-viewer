@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -229,6 +230,101 @@ def get_session(project_dir: str, session_id: str):
         if path.exists():
             return JSONResponse(parse_session(path))
     raise HTTPException(status_code=404, detail="Session not found")
+
+
+@app.get("/api/search")
+def search_content(q: str = ""):
+    """Search message content across all sessions."""
+    query = q.strip().lower()
+    if not query or len(query) < 2:
+        return JSONResponse([])
+
+    results = []
+    for log_dir in get_log_dirs():
+        if not log_dir.exists():
+            continue
+        for project_dir in sorted(log_dir.iterdir()):
+            if not project_dir.is_dir():
+                continue
+            for jsonl_file in sorted(project_dir.glob("*.jsonl"),
+                                     key=lambda p: p.stat().st_mtime, reverse=True):
+                hits = _search_session(jsonl_file, query)
+                if hits:
+                    session_id = jsonl_file.stem
+                    results.append({
+                        "session_id": session_id,
+                        "project_dir": project_dir.name,
+                        "hit_count": len(hits),
+                        "hits": hits[:20],
+                    })
+    return JSONResponse(results)
+
+
+def _search_session(path: Path, query: str) -> list[dict]:
+    """Search a single session file for query matches in text content.
+
+    msg_index must match the index in parse_session()'s messages array,
+    so we replicate the exact same filtering logic here.
+    """
+    hits = []
+    msg_index = -1
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                msg_type = entry.get("type")
+                if msg_type not in ("user", "assistant"):
+                    continue
+                message = entry.get("message", {})
+                if not isinstance(message, dict):
+                    continue
+                content = message.get("content")
+                if not content:
+                    continue
+                if isinstance(content, str):
+                    content = [{"type": "text", "text": content}]
+                if not isinstance(content, list):
+                    continue
+
+                # Check if this entry would produce items in parse_session
+                has_items = any(
+                    isinstance(c, dict) and (
+                        (c.get("type") == "text" and c.get("text"))
+                        or c.get("type") in ("tool_use", "tool_result")
+                    )
+                    for c in content
+                )
+                if not has_items:
+                    continue
+
+                # Only count messages that parse_session would include
+                msg_index += 1
+
+                # Search text content
+                for c in content:
+                    if not isinstance(c, dict) or c.get("type") != "text":
+                        continue
+                    text = c.get("text", "")
+                    if query in text.lower():
+                        idx = text.lower().index(query)
+                        start = max(0, idx - 40)
+                        end = min(len(text), idx + len(query) + 40)
+                        snippet = ("…" if start > 0 else "") + text[start:end] + ("…" if end < len(text) else "")
+                        hits.append({
+                            "msg_index": msg_index,
+                            "role": msg_type,
+                            "snippet": snippet,
+                        })
+                        break
+    except Exception:
+        pass
+    return hits
 
 
 @app.post("/api/sessions/{session_id}/rename")

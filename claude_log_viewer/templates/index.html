@@ -45,6 +45,15 @@
         .speed-slider { background: #d4d4d8; }
         .dark .speed-slider::-webkit-slider-thumb { background: #d97d54; }
         .speed-slider::-webkit-slider-thumb { background: #d97d54; }
+
+        /* Line clamp fallback */
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* Search highlight */
+        mark.search-hit { background: #fbbf24; color: #000; border-radius: 2px; padding: 0 1px; }
+        .dark mark.search-hit { background: #b45309; color: #fff; }
+        mark.search-hit.current { background: #f97316; }
+        .dark mark.search-hit.current { background: #ea580c; }
     </style>
 </head>
 <body class="flex h-full overflow-hidden bg-white dark:bg-[#09090b] text-zinc-800 dark:text-zinc-300 transition-colors duration-300">
@@ -55,14 +64,26 @@
             <i class="ph-fill ph-terminal-window text-anthropic text-xl"></i>
             <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-100" data-i18n="title">Claude Log Viewer</span>
         </div>
-        <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 flex gap-2">
-            <div class="relative flex-1">
-                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm"></i>
-                <input id="search" type="text" class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-md py-1.5 pl-8 pr-3 text-xs text-zinc-800 dark:text-zinc-300 placeholder-zinc-400 font-mono focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors" data-i18n-placeholder="search_placeholder">
+        <div class="border-b border-zinc-200 dark:border-zinc-800">
+            <div class="flex px-3 pt-2 gap-1">
+                <button id="search-tab-session" class="search-tab flex-1 text-[11px] font-medium py-1 rounded-t-md transition-colors border-b-2 border-anthropic text-zinc-800 dark:text-zinc-100" onclick="setSearchMode('session')">
+                    <span data-i18n="search_tab_session">セッション名</span>
+                </button>
+                <button id="search-tab-content" class="search-tab flex-1 text-[11px] font-medium py-1 rounded-t-md transition-colors border-b-2 border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-400" onclick="setSearchMode('content')">
+                    <span data-i18n="search_tab_content">本文</span>
+                </button>
+                <button id="reload-btn" class="flex-shrink-0 p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors" title="Reload sessions">
+                    <i class="ph ph-arrows-clockwise text-sm"></i>
+                </button>
             </div>
-            <button id="reload-btn" class="flex-shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors" title="Reload sessions">
-                <i class="ph ph-arrows-clockwise text-base"></i>
-            </button>
+            <div class="px-3 py-2 flex gap-2">
+                <div class="relative flex-1">
+                    <i id="search-icon" class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm"></i>
+                    <i id="search-spinner" class="ph ph-spinner ph-spin absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm hidden"></i>
+                    <input id="search" type="text" class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-md py-1.5 pl-8 pr-3 text-xs text-zinc-800 dark:text-zinc-300 placeholder-zinc-400 font-mono focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors" data-i18n-placeholder="search_placeholder">
+                </div>
+            </div>
+            <div id="search-hit-count" class="hidden px-3 pb-2 text-[10px] font-mono text-zinc-400"></div>
         </div>
         <div id="session-list" class="flex-1 overflow-y-auto py-2">
             <div class="text-xs text-zinc-400 px-4 py-4" data-i18n="loading">Loading...</div>
@@ -100,10 +121,24 @@
             </div>
         </header>
 
-        <div id="chat" class="flex-1 overflow-y-auto px-10 py-8 flex flex-col gap-6">
-            <div class="flex flex-col items-center justify-center h-full text-zinc-400 dark:text-zinc-600 text-sm gap-2">
-                <i class="ph ph-chat-dots text-4xl"></i>
-                <span data-i18n="empty_state">Select a session from the sidebar</span>
+        <div class="relative flex-1 min-h-0">
+            <div id="chat" class="h-full overflow-y-auto px-10 py-8 flex flex-col gap-6">
+                <div class="flex flex-col items-center justify-center h-full text-zinc-400 dark:text-zinc-600 text-sm gap-2">
+                    <i class="ph ph-chat-dots text-4xl"></i>
+                    <span data-i18n="empty_state">Select a session from the sidebar</span>
+                </div>
+            </div>
+            <div id="highlight-nav" class="hidden absolute bottom-4 right-6 flex items-center gap-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg px-3 py-1.5 z-20">
+                <span id="highlight-counter" class="text-xs font-mono text-zinc-500 dark:text-zinc-400 min-w-[3ch] text-center"></span>
+                <button onclick="jumpHighlight(-1)" class="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Previous hit">
+                    <i class="ph ph-caret-up text-base"></i>
+                </button>
+                <button onclick="jumpHighlight(1)" class="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Next hit">
+                    <i class="ph ph-caret-down text-base"></i>
+                </button>
+                <button onclick="clearHighlights()" class="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Clear">
+                    <i class="ph ph-x text-base"></i>
+                </button>
             </div>
         </div>
     </main>
@@ -132,6 +167,9 @@
         en: {
             title: "Claude Log Viewer", loading: "Loading...",
             search_placeholder: "Search by session name...",
+            search_placeholder_content: "Search in messages (Enter)",
+            search_tab_session: "Session Name",
+            search_tab_content: "Content",
             rename_title: "Rename Session", cancel: "Cancel", save: "Save",
             select_session: "Select a session",
             empty_state: "Select a session from the sidebar",
@@ -148,6 +186,9 @@
         ja: {
             title: "Claude ログビューアー", loading: "読み込み中...",
             search_placeholder: "セッション名から検索...",
+            search_placeholder_content: "本文を検索（Enter）",
+            search_tab_session: "セッション名",
+            search_tab_content: "本文",
             rename_title: "セッション名を変更", cancel: "キャンセル", save: "保存",
             select_session: "セッションを選択",
             empty_state: "サイドバーからセッションを選択してください",
@@ -169,6 +210,12 @@
     // Track collapsed state per project key
     const collapsedProjects = new Set();
 
+    // Search state
+    let searchMode = 'session'; // 'session' | 'content'
+    let contentSearchResults = null; // [{session_id, project_dir, hit_count, hits}]
+    let currentHighlightIndex = -1;
+    let contentSearchQuery = '';
+
     // Playback state: 'idle' | 'playing' | 'paused'
     let playbackState = 'idle';
     let playbackTimer = null;
@@ -182,6 +229,13 @@
         document.querySelectorAll('[data-i18n-placeholder]').forEach(el => el.placeholder = t(el.dataset.i18nPlaceholder));
         document.getElementById('lang-toggle').textContent = lang === 'en' ? 'JA' : 'EN';
         document.documentElement.lang = lang;
+        // Update search placeholder based on current mode
+        updateSearchPlaceholder();
+    }
+
+    function updateSearchPlaceholder() {
+        const input = document.getElementById('search');
+        input.placeholder = searchMode === 'session' ? t('search_placeholder') : t('search_placeholder_content');
     }
 
     function toolLabel(name) {
@@ -264,21 +318,21 @@
         return '';
     }
 
-    function renderMessage(msg) {
+    function renderMessage(msg, index) {
         const isUser = msg.role === 'user';
         const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString(lang === 'ja' ? 'ja-JP' : 'en-US', {hour:'2-digit', minute:'2-digit'}) : '';
 
         if (isUser) {
             const textItems = msg.items.filter(i => i.type === 'text');
             if (!textItems.length) return '';
-            return `<div class="flex flex-col self-end max-w-[75%] items-end">
+            return `<div class="flex flex-col self-end max-w-[75%] items-end" data-msg-index="${index}">
                 <div class="text-[10px] font-mono text-zinc-400 mb-1">${ts}</div>
                 <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(textItems.map(i=>i.text).join('\n'))}</div>
             </div>`;
         } else {
             const itemsHtml = msg.items.map(renderItem).join('');
             if (!itemsHtml.trim()) return '';
-            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9">
+            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9" data-msg-index="${index}">
                 <div class="absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
                     <i class="ph ph-robot text-anthropic text-sm"></i>
                 </div>
@@ -401,6 +455,163 @@
             el.setAttribute('data-msg', '1');
             el.classList.add('msg-visible');
         });
+
+        // Apply search highlights if content search is active (2+ chars only)
+        if (searchMode === 'content' && contentSearchQuery && contentSearchQuery.length >= 2) {
+            applyHighlights(contentSearchQuery);
+        }
+    }
+
+    // --- Search mode & content search ---
+
+    function setSearchMode(mode) {
+        searchMode = mode;
+        const sessionTab = document.getElementById('search-tab-session');
+        const contentTab = document.getElementById('search-tab-content');
+        const input = document.getElementById('search');
+
+        if (mode === 'session') {
+            sessionTab.classList.add('border-anthropic', 'text-zinc-800', 'dark:text-zinc-100');
+            sessionTab.classList.remove('border-transparent', 'text-zinc-400');
+            contentTab.classList.remove('border-anthropic', 'text-zinc-800', 'dark:text-zinc-100');
+            contentTab.classList.add('border-transparent', 'text-zinc-400');
+            // Clear content search state
+            contentSearchResults = null;
+            contentSearchQuery = '';
+            clearHighlights();
+            document.getElementById('search-hit-count').classList.add('hidden');
+        } else {
+            contentTab.classList.add('border-anthropic', 'text-zinc-800', 'dark:text-zinc-100');
+            contentTab.classList.remove('border-transparent', 'text-zinc-400');
+            sessionTab.classList.remove('border-anthropic', 'text-zinc-800', 'dark:text-zinc-100');
+            sessionTab.classList.add('border-transparent', 'text-zinc-400');
+        }
+
+        input.value = '';
+        updateSearchPlaceholder();
+        renderSidebar(allSessions);
+        input.focus();
+    }
+
+    async function executeContentSearch(query) {
+        if (!query.trim()) {
+            contentSearchResults = null;
+            contentSearchQuery = '';
+            document.getElementById('search-hit-count').classList.add('hidden');
+            clearHighlights();
+            renderSidebar(allSessions);
+            return;
+        }
+
+        // Show spinner
+        document.getElementById('search-icon').classList.add('hidden');
+        document.getElementById('search-spinner').classList.remove('hidden');
+
+        try {
+            const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+            const results = await res.json();
+            contentSearchResults = results;
+            contentSearchQuery = query;
+
+            // Show hit count
+            const totalHits = results.reduce((sum, r) => sum + r.hit_count, 0);
+            const hitCountEl = document.getElementById('search-hit-count');
+            hitCountEl.textContent = `${results.length} sessions / ${totalHits} hits`;
+            hitCountEl.classList.remove('hidden');
+
+            renderSidebar(allSessions);
+
+            // If a session is currently open, apply highlights
+            if (currentSession && contentSearchQuery) {
+                applyHighlights(contentSearchQuery);
+            }
+        } catch (e) {
+            console.error('Content search failed:', e);
+        } finally {
+            document.getElementById('search-spinner').classList.add('hidden');
+            document.getElementById('search-icon').classList.remove('hidden');
+        }
+    }
+
+    function applyHighlights(query) {
+        if (!query) return;
+        clearHighlights();
+        const chat = document.getElementById('chat');
+        const walker = document.createTreeWalker(chat, NodeFilter.SHOW_TEXT, null);
+        const textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+        const lowerQuery = query.toLowerCase();
+        textNodes.forEach(node => {
+            const text = node.textContent;
+            const lowerText = text.toLowerCase();
+            if (!lowerText.includes(lowerQuery)) return;
+
+            const frag = document.createDocumentFragment();
+            let lastIdx = 0;
+            let idx = lowerText.indexOf(lowerQuery, lastIdx);
+            while (idx !== -1) {
+                if (idx > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, idx)));
+                const mark = document.createElement('mark');
+                mark.className = 'search-hit';
+                mark.textContent = text.slice(idx, idx + query.length);
+                frag.appendChild(mark);
+                lastIdx = idx + query.length;
+                idx = lowerText.indexOf(lowerQuery, lastIdx);
+            }
+            if (lastIdx < text.length) frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+            node.parentNode.replaceChild(frag, node);
+        });
+
+        currentHighlightIndex = -1;
+        updateHighlightNav();
+    }
+
+    function updateHighlightNav() {
+        const marks = document.querySelectorAll('mark.search-hit');
+        const nav = document.getElementById('highlight-nav');
+        if (marks.length === 0) {
+            nav.classList.add('hidden');
+            return;
+        }
+        nav.classList.remove('hidden');
+        const counter = document.getElementById('highlight-counter');
+        if (currentHighlightIndex >= 0) {
+            counter.textContent = `${currentHighlightIndex + 1}/${marks.length}`;
+        } else {
+            counter.textContent = `${marks.length} hits`;
+        }
+    }
+
+    function jumpHighlight(direction) {
+        const marks = document.querySelectorAll('mark.search-hit');
+        if (marks.length === 0) return;
+
+        // Remove current highlight
+        if (currentHighlightIndex >= 0 && currentHighlightIndex < marks.length) {
+            marks[currentHighlightIndex].classList.remove('current');
+        }
+
+        if (currentHighlightIndex < 0) {
+            currentHighlightIndex = direction > 0 ? 0 : marks.length - 1;
+        } else {
+            currentHighlightIndex += direction;
+            if (currentHighlightIndex >= marks.length) currentHighlightIndex = 0;
+            if (currentHighlightIndex < 0) currentHighlightIndex = marks.length - 1;
+        }
+
+        marks[currentHighlightIndex].classList.add('current');
+        marks[currentHighlightIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        updateHighlightNav();
+    }
+
+    function clearHighlights() {
+        document.querySelectorAll('mark.search-hit').forEach(mark => {
+            const text = document.createTextNode(mark.textContent);
+            mark.parentNode.replaceChild(text, mark);
+        });
+        currentHighlightIndex = -1;
+        document.getElementById('highlight-nav').classList.add('hidden');
     }
 
     function groupSessions(sessions) {
@@ -427,6 +638,14 @@
 
     function renderSidebar(sessions) {
         const query = document.getElementById('search').value.toLowerCase();
+
+        // Content search mode: render search results view
+        if (searchMode === 'content' && contentSearchResults) {
+            renderSearchResults(sessions);
+            return;
+        }
+
+        // Session name mode: incremental filter (existing behavior)
         const filtered = query
             ? sessions.filter(s =>
                 s.display_name.toLowerCase().includes(query) ||
@@ -434,6 +653,44 @@
                 s.project.toLowerCase().includes(query))
             : sessions;
 
+        renderSessionList(filtered);
+    }
+
+    function renderSearchResults(sessions) {
+        const sessionMap = {};
+        sessions.forEach(s => { sessionMap[s.id] = s; });
+
+        let html = '';
+        contentSearchResults.forEach(result => {
+            const session = sessionMap[result.session_id];
+            if (!session) return;
+            const name20 = session.display_name.length > 20 ? session.display_name.slice(0, 20) + '…' : session.display_name;
+            const isActive = currentSession && currentSession.id === session.id;
+
+            html += `<div class="mx-2 mb-2">
+                <div class="flex items-center gap-1.5 px-2 py-1.5 rounded-md ${isActive ? 'bg-white dark:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-600' : 'bg-zinc-200/70 dark:bg-zinc-700/40 border border-zinc-300/50 dark:border-zinc-600/30'}">
+                    <i class="ph ph-chat-dots text-[11px] text-zinc-500 dark:text-zinc-400 flex-shrink-0"></i>
+                    <span class="text-[11px] font-medium ${isActive ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-200'} truncate" title="${escapeHtml(session.display_name)}">${escapeHtml(name20)}</span>
+                    <span class="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 ml-auto flex-shrink-0">${result.hit_count} hits</span>
+                </div>`;
+
+            result.hits.forEach(hit => {
+                const roleIcon = hit.role === 'user' ? 'ph-user' : 'ph-robot';
+                const roleColor = hit.role === 'user' ? 'text-blue-400' : 'text-anthropic';
+                html += `<div class="search-hit-item flex gap-1.5 px-3 py-1.5 cursor-pointer rounded hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
+                    data-session-id="${escapeHtml(session.id)}" data-project-dir="${escapeHtml(session.project_dir)}" data-msg-index="${hit.msg_index}">
+                    <i class="ph ${roleIcon} ${roleColor} text-[10px] mt-0.5 flex-shrink-0"></i>
+                    <span class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug line-clamp-2">${escapeHtml(hit.snippet)}</span>
+                </div>`;
+            });
+
+            html += `</div>`;
+        });
+
+        document.getElementById('session-list').innerHTML = html || `<div class="text-xs text-zinc-400 px-4 py-4">No results</div>`;
+    }
+
+    function renderSessionList(filtered) {
         const byProject = groupSessions(filtered);
         let html = '';
 
@@ -492,10 +749,40 @@
         loadSession(session);
     }
 
+    async function selectSearchHit(sessionId, projectDir, msgIndex) {
+        const session = allSessions.find(s => s.id === sessionId && s.project_dir === projectDir);
+        if (!session) return;
+
+        // Load session only if different from current
+        if (!currentSession || currentSession.id !== session.id) {
+            await loadSession(session);
+        }
+
+        // Scroll to target message
+        const target = document.querySelector(`[data-msg-index="${msgIndex}"]`);
+        if (target) {
+            // Clear previous flash
+            document.querySelectorAll('.ring-2.ring-anthropic\\/50').forEach(el => {
+                el.classList.remove('ring-2', 'ring-anthropic/50', 'rounded-lg');
+            });
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('ring-2', 'ring-anthropic/50', 'rounded-lg');
+            setTimeout(() => target.classList.remove('ring-2', 'ring-anthropic/50', 'rounded-lg'), 2000);
+        }
+    }
+
     let reloading = false;
     async function reloadSessions() {
         if (reloading) return;
         reloading = true;
+        // Reset search state
+        contentSearchResults = null;
+        contentSearchQuery = '';
+        document.getElementById('search').value = '';
+        document.getElementById('search-hit-count').classList.add('hidden');
+        clearHighlights();
+        if (searchMode === 'content') setSearchMode('session');
+
         const btn = document.getElementById('reload-btn');
         const icon = btn.querySelector('i');
         icon.classList.add('animate-spin');
@@ -589,7 +876,17 @@
             document.getElementById('session-title').textContent = currentSession.display_name;
         }
     });
-    document.getElementById('search').addEventListener('input', () => renderSidebar(allSessions));
+    document.getElementById('search').addEventListener('input', () => {
+        if (searchMode === 'session') {
+            renderSidebar(allSessions);
+        }
+        // Content mode: no incremental search, wait for Enter
+    });
+    document.getElementById('search').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && searchMode === 'content') {
+            executeContentSearch(e.target.value);
+        }
+    });
     document.getElementById('rename-btn').addEventListener('click', openRenameModal);
     document.getElementById('rename-close').addEventListener('click', () => document.getElementById('rename-modal').classList.add('hidden'));
     document.getElementById('rename-cancel').addEventListener('click', () => document.getElementById('rename-modal').classList.add('hidden'));
@@ -597,6 +894,12 @@
     document.getElementById('rename-input').addEventListener('input', updateRenameCount);
     document.getElementById('rename-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') document.getElementById('rename-modal').classList.add('hidden'); });
     document.getElementById('reload-btn').addEventListener('click', reloadSessions);
+    document.getElementById('session-list').addEventListener('click', (e) => {
+        const item = e.target.closest('.search-hit-item');
+        if (item) {
+            selectSearchHit(item.dataset.sessionId, item.dataset.projectDir, parseInt(item.dataset.msgIndex));
+        }
+    });
     document.getElementById('playback-btn').addEventListener('click', togglePlayback);
     document.getElementById('stop-btn').addEventListener('click', playbackStop);
     document.getElementById('speed-slider').addEventListener('input', (e) => {
