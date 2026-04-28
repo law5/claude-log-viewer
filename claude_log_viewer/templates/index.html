@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark h-full antialiased">
+<html lang="en" class="dark h-full antialiased overflow-x-hidden">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -56,13 +56,19 @@
         .dark mark.search-hit.current { background: #ea580c; }
     </style>
 </head>
-<body class="flex h-full overflow-hidden bg-white dark:bg-[#09090b] text-zinc-800 dark:text-zinc-300 transition-colors duration-300">
+<body class="flex h-full overflow-hidden overflow-x-hidden bg-white dark:bg-[#09090b] text-zinc-800 dark:text-zinc-300 transition-colors duration-300">
+
+    <!-- SIDEBAR OVERLAY (mobile) -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30 hidden md:hidden" onclick="toggleSidebar()"></div>
 
     <!-- SIDEBAR -->
-    <aside class="w-72 flex-shrink-0 flex flex-col bg-zinc-50 dark:bg-zinc-900/30 border-r border-zinc-200 dark:border-zinc-800 transition-colors duration-300">
+    <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col bg-zinc-50 dark:bg-zinc-900/30 border-r border-zinc-200 dark:border-zinc-800 transition-all duration-300 fixed inset-y-0 left-0 z-40 -translate-x-full md:relative md:translate-x-0">
         <div class="h-14 flex items-center px-4 border-b border-zinc-200 dark:border-zinc-800 gap-2">
             <i class="ph-fill ph-terminal-window text-anthropic text-xl"></i>
             <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-100" data-i18n="title">Claude Log Viewer</span>
+            <button class="ml-auto p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 md:hidden" onclick="toggleSidebar()" title="Close sidebar">
+                <i class="ph ph-x text-lg"></i>
+            </button>
         </div>
         <div class="border-b border-zinc-200 dark:border-zinc-800">
             <div class="flex px-3 pt-2 gap-1">
@@ -92,8 +98,11 @@
 
     <!-- MAIN -->
     <main class="flex-1 flex flex-col min-w-0">
-        <header class="h-14 flex items-center justify-between px-6 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-lg sticky top-0 z-10 transition-colors duration-300">
+        <header class="h-14 flex items-center justify-between px-4 md:px-6 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-lg sticky top-0 z-10 transition-colors duration-300">
             <div class="flex items-center gap-2 min-w-0">
+                <button id="sidebar-toggle" class="p-1.5 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors md:hidden" onclick="toggleSidebar()" title="Open sidebar">
+                    <i class="ph ph-list text-lg"></i>
+                </button>
                 <h1 id="session-title" class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[30ch]" data-i18n="select_session">Select a session</h1>
                 <button id="rename-btn" class="hidden flex-shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Rename session">
                     <i class="ph ph-pencil text-sm"></i>
@@ -122,7 +131,7 @@
         </header>
 
         <div class="relative flex-1 min-h-0">
-            <div id="chat" class="h-full overflow-y-auto px-10 py-8 flex flex-col gap-6">
+            <div id="chat" class="h-full overflow-y-auto overflow-x-hidden px-4 md:px-10 py-8 flex flex-col gap-6">
                 <div class="flex flex-col items-center justify-center h-full text-zinc-400 dark:text-zinc-600 text-sm gap-2">
                     <i class="ph ph-chat-dots text-4xl"></i>
                     <span data-i18n="empty_state">Select a session from the sidebar</span>
@@ -163,6 +172,19 @@
 
 
     <script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        const isOpen = !sidebar.classList.contains('-translate-x-full');
+        if (isOpen) {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        } else {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+        }
+    }
+
     const TRANSLATIONS = {
         en: {
             title: "Claude Log Viewer", loading: "Loading...",
@@ -747,6 +769,7 @@
 
     function selectSession(session) {
         loadSession(session);
+        if (window.innerWidth < 768) toggleSidebar();
     }
 
     async function selectSearchHit(sessionId, projectDir, msgIndex) {

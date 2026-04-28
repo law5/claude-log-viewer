@@ -341,7 +341,8 @@ async def rename_session(session_id: str, body: dict):
 
 
 def run():
-    uvicorn.run("claude_log_viewer.main:app", host="127.0.0.1", port=4512, reload=False)
+    host = os.environ.get("CLV_HOST", "127.0.0.1")
+    uvicorn.run("claude_log_viewer.main:app", host=host, port=4512, reload=False)
 
 
 if __name__ == "__main__":
