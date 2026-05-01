@@ -482,6 +482,9 @@
         if (searchMode === 'content' && contentSearchQuery && contentSearchQuery.length >= 2) {
             applyHighlights(contentSearchQuery);
         }
+
+        // Scroll to latest message after render completes
+        requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
     }
 
     // --- Search mode & content search ---
