@@ -251,6 +251,21 @@
         updateQuoteBar();
     }
 
+    function copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text);
+        }
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        return Promise.resolve();
+    }
+
     function copyQuoted() {
         const msgs = [];
         const sorted = [...selectedMessages].sort((a,b) => Number(a) - Number(b));
@@ -263,7 +278,7 @@
             msgs.push(`${label}: ${text}`);
         });
         const result = msgs.join('\n\n');
-        navigator.clipboard.writeText(result).then(() => {
+        copyToClipboard(result).then(() => {
             const btn = document.querySelector('#quote-bar button');
             const orig = btn.textContent;
             btn.textContent = t('copied');
