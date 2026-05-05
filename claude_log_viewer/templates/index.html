@@ -340,9 +340,32 @@
         return '';
     }
 
+    function formatTimestamp(timestamp) {
+        if (!timestamp) return '';
+        const d = new Date(timestamp);
+        const locale = lang === 'ja' ? 'ja-JP' : 'en-US';
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+        const time = d.toLocaleTimeString(locale, {hour:'2-digit', minute:'2-digit'});
+        return `${month}/${day} ${time}`;
+    }
+
+    function getDateKey(timestamp) {
+        if (!timestamp) return '';
+        const d = new Date(timestamp);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function renderDateSeparator(timestamp) {
+        const d = new Date(timestamp);
+        const locale = lang === 'ja' ? 'ja-JP' : 'en-US';
+        const label = d.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+        return `<div class="flex items-center gap-3 my-4"><div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-700"></div><span class="text-[11px] font-mono text-zinc-400 dark:text-zinc-500 whitespace-nowrap">${label}</span><div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-700"></div></div>`;
+    }
+
     function renderMessage(msg, index) {
         const isUser = msg.role === 'user';
-        const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString(lang === 'ja' ? 'ja-JP' : 'en-US', {hour:'2-digit', minute:'2-digit'}) : '';
+        const ts = formatTimestamp(msg.timestamp);
 
         if (isUser) {
             const textItems = msg.items.filter(i => i.type === 'text');
@@ -468,7 +491,18 @@
             badge.textContent = `${data.total_tokens.toLocaleString()} ${t('tokens')}`;
             badge.classList.remove('hidden');
         }
-        const html = data.messages.map(renderMessage).filter(Boolean).join('');
+        let lastDateKey = '';
+        const htmlParts = [];
+        data.messages.forEach((msg, i) => {
+            const dateKey = getDateKey(msg.timestamp);
+            if (dateKey && dateKey !== lastDateKey) {
+                htmlParts.push(renderDateSeparator(msg.timestamp));
+                lastDateKey = dateKey;
+            }
+            const rendered = renderMessage(msg, i);
+            if (rendered) htmlParts.push(rendered);
+        });
+        const html = htmlParts.join('');
         document.getElementById('chat').innerHTML = html || `<div class="text-zinc-400 text-sm text-center mt-20">${t('empty_state')}</div>`;
 
         // Wrap each message for playback control
