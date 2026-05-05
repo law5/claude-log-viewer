@@ -54,6 +54,11 @@
         .dark mark.search-hit { background: #b45309; color: #fff; }
         mark.search-hit.current { background: #f97316; }
         .dark mark.search-hit.current { background: #ea580c; }
+
+        /* Message selection for quote */
+        .msg-selected { outline: 2px solid #d97d54; outline-offset: 2px; border-radius: 8px; }
+        .msg-select-check { display: none; }
+        .msg-selected .msg-select-check { display: flex; }
     </style>
 </head>
 <body class="flex h-full overflow-hidden overflow-x-hidden bg-white dark:bg-[#09090b] text-zinc-800 dark:text-zinc-300 transition-colors duration-300">
@@ -149,6 +154,13 @@
                     <i class="ph ph-x text-base"></i>
                 </button>
             </div>
+            <div id="quote-bar" class="hidden absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg px-4 py-2 z-20">
+                <span id="quote-count" class="text-xs font-mono text-zinc-500 dark:text-zinc-400"></span>
+                <button onclick="copyQuoted()" class="px-3 py-1 bg-zinc-800 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-800 text-xs font-medium rounded-md hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors" data-i18n="copy_quote">Copy</button>
+                <button onclick="clearSelection()" class="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Clear selection">
+                    <i class="ph ph-x text-base"></i>
+                </button>
+            </div>
         </div>
     </main>
 
@@ -185,6 +197,57 @@
         }
     }
 
+    const selectedMessages = new Set();
+
+    function toggleMsgSelect(el) {
+        const idx = el.getAttribute('data-msg-index');
+        if (selectedMessages.has(idx)) {
+            selectedMessages.delete(idx);
+            el.classList.remove('msg-selected');
+        } else {
+            selectedMessages.add(idx);
+            el.classList.add('msg-selected');
+        }
+        updateQuoteBar();
+    }
+
+    function updateQuoteBar() {
+        const bar = document.getElementById('quote-bar');
+        const count = selectedMessages.size;
+        if (count === 0) {
+            bar.classList.add('hidden');
+            return;
+        }
+        bar.classList.remove('hidden');
+        document.getElementById('quote-count').textContent = `${count} ${t('quote_selected')}`;
+    }
+
+    function clearSelection() {
+        selectedMessages.clear();
+        document.querySelectorAll('.msg-selected').forEach(el => el.classList.remove('msg-selected'));
+        updateQuoteBar();
+    }
+
+    function copyQuoted() {
+        const msgs = [];
+        const sorted = [...selectedMessages].sort((a,b) => Number(a) - Number(b));
+        sorted.forEach(idx => {
+            const el = document.querySelector(`[data-msg-index="${idx}"][data-role]`);
+            if (!el) return;
+            const role = el.getAttribute('data-role');
+            const text = el.getAttribute('data-text');
+            const label = role === 'user' ? 'User' : 'Agent';
+            msgs.push(`${label}: ${text}`);
+        });
+        const result = msgs.join('\n\n');
+        navigator.clipboard.writeText(result).then(() => {
+            const btn = document.querySelector('#quote-bar button');
+            const orig = btn.textContent;
+            btn.textContent = t('copied');
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        });
+    }
+
     const TRANSLATIONS = {
         en: {
             title: "Claude Log Viewer", loading: "Loading...",
@@ -204,6 +267,7 @@
             tool_write: "Write", tool_glob: "Glob", tool_grep: "Grep",
             tool_agent: "Agent", tool_other: "Tool",
             tool_search: "Search", tool_task: "Task",
+            quote_selected: "selected", copy_quote: "Copy", copied: "Copied!",
         },
         ja: {
             title: "Claude ログビューアー", loading: "読み込み中...",
@@ -223,6 +287,7 @@
             tool_write: "Write", tool_glob: "Glob", tool_grep: "Grep",
             tool_agent: "Agent", tool_other: "ツール",
             tool_search: "Search", tool_task: "Task",
+            quote_selected: "件選択中", copy_quote: "コピー", copied: "コピー済み!",
         }
     };
 
@@ -347,14 +412,18 @@
         if (isUser) {
             const textItems = msg.items.filter(i => i.type === 'text');
             if (!textItems.length) return '';
-            return `<div class="flex flex-col self-end max-w-[75%] items-end" data-msg-index="${index}">
+            const text = textItems.map(i=>i.text).join('\n');
+            return `<div class="flex flex-col self-end max-w-[75%] items-end cursor-pointer relative" data-msg-index="${index}" data-role="user" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this)">
                 <div class="text-[10px] font-mono text-zinc-400 mb-1">${ts}</div>
-                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(textItems.map(i=>i.text).join('\n'))}</div>
+                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</div>
+                <div class="msg-select-check absolute -top-2 -right-2 w-5 h-5 items-center justify-center rounded-full bg-[#d97d54] text-white text-xs"><i class="ph ph-check"></i></div>
             </div>`;
         } else {
             const itemsHtml = msg.items.map(renderItem).join('');
             if (!itemsHtml.trim()) return '';
-            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9" data-msg-index="${index}">
+            const textItems = msg.items.filter(i => i.type === 'text');
+            const text = textItems.map(i=>i.text).join('\n');
+            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9 cursor-pointer" data-msg-index="${index}" data-role="assistant" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this)">
                 <div class="absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
                     <i class="ph ph-robot text-anthropic text-sm"></i>
                 </div>
@@ -362,8 +431,13 @@
                     <div class="text-[10px] font-mono text-zinc-400 ml-1">${ts}</div>
                     ${itemsHtml}
                 </div>
+                <div class="msg-select-check absolute -top-2 -left-2 w-5 h-5 items-center justify-center rounded-full bg-[#d97d54] text-white text-xs"><i class="ph ph-check"></i></div>
             </div>`;
         }
+    }
+
+    function escapeAttr(s) {
+        return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
     function setPlaybackIcon(icon) {
@@ -771,6 +845,7 @@
     }
 
     function selectSession(session) {
+        clearSelection();
         loadSession(session);
         if (window.innerWidth < 768) toggleSidebar();
     }
