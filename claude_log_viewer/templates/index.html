@@ -199,7 +199,8 @@
 
     const selectedMessages = new Set();
 
-    function toggleMsgSelect(el) {
+    function toggleMsgSelect(el, event) {
+        if (event && event.target.closest('button, summary, a, input, details')) return;
         const idx = el.getAttribute('data-msg-index');
         if (selectedMessages.has(idx)) {
             selectedMessages.delete(idx);
@@ -245,6 +246,8 @@
             const orig = btn.textContent;
             btn.textContent = t('copied');
             setTimeout(() => { btn.textContent = orig; }, 1500);
+        }).catch(() => {
+            console.warn('Clipboard write failed');
         });
     }
 
@@ -413,7 +416,7 @@
             const textItems = msg.items.filter(i => i.type === 'text');
             if (!textItems.length) return '';
             const text = textItems.map(i=>i.text).join('\n');
-            return `<div class="flex flex-col self-end max-w-[75%] items-end cursor-pointer relative" data-msg-index="${index}" data-role="user" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this)">
+            return `<div class="flex flex-col self-end max-w-[75%] items-end cursor-pointer relative" data-msg-index="${index}" data-role="user" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this, event)">
                 <div class="text-[10px] font-mono text-zinc-400 mb-1">${ts}</div>
                 <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</div>
                 <div class="msg-select-check absolute -top-2 -right-2 w-5 h-5 items-center justify-center rounded-full bg-[#d97d54] text-white text-xs"><i class="ph ph-check"></i></div>
@@ -423,7 +426,7 @@
             if (!itemsHtml.trim()) return '';
             const textItems = msg.items.filter(i => i.type === 'text');
             const text = textItems.map(i=>i.text).join('\n');
-            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9 cursor-pointer" data-msg-index="${index}" data-role="assistant" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this)">
+            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9 cursor-pointer" data-msg-index="${index}" data-role="assistant" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this, event)">
                 <div class="absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
                     <i class="ph ph-robot text-anthropic text-sm"></i>
                 </div>
@@ -437,7 +440,7 @@
     }
 
     function escapeAttr(s) {
-        return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
     function setPlaybackIcon(icon) {
@@ -519,6 +522,7 @@
     async function loadSession(session) {
         // Stop any running playback
         playbackStop();
+        clearSelection();
 
         currentSession = session;
         // Update header
