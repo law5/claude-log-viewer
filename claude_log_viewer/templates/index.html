@@ -94,6 +94,14 @@
         <div id="session-list" class="flex-1 overflow-y-auto py-2">
             <div class="text-xs text-zinc-400 px-4 py-4" data-i18n="loading">Loading...</div>
         </div>
+        <div class="flex items-center gap-1 px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
+            <button id="lang-toggle" class="px-2 py-1 rounded text-[11px] font-mono text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">EN</button>
+            <button id="theme-toggle" class="p-2 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors" title="Toggle theme">
+                <i class="ph ph-sun text-lg" id="icon-light"></i>
+                <i class="ph ph-moon text-lg hidden" id="icon-dark"></i>
+                <span id="icon-auto" class="hidden text-[10px] font-mono font-bold">AUTO</span>
+            </button>
+        </div>
     </aside>
 
     <!-- MAIN -->
@@ -119,14 +127,6 @@
                     <span id="speed-label" class="text-[10px] font-mono text-zinc-400 w-8">1.0x</span>
                 </div>
                 <span id="token-badge" class="hidden px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 flex-shrink-0 whitespace-nowrap"></span>
-            </div>
-            <div class="flex items-center gap-1 flex-shrink-0">
-                <button id="lang-toggle" class="px-2 py-1 rounded text-[11px] font-mono text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">EN</button>
-                <button id="theme-toggle" class="p-2 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Toggle theme">
-                    <i class="ph ph-sun text-lg" id="icon-light"></i>
-                    <i class="ph ph-moon text-lg hidden" id="icon-dark"></i>
-                    <span id="icon-auto" class="hidden text-[10px] font-mono font-bold">AUTO</span>
-                </button>
             </div>
         </header>
 
