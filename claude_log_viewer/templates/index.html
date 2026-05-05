@@ -58,7 +58,10 @@
         /* Message selection for quote */
         .msg-selected { outline: 2px solid #d97d54; outline-offset: 2px; border-radius: 8px; }
         .msg-select-check { display: none; }
-        .msg-selected .msg-select-check { display: flex; }
+        .quote-mode .msg-select-check { display: flex; opacity: 0.3; }
+        .quote-mode .msg-selected .msg-select-check { opacity: 1; }
+        .quote-mode [data-role] { cursor: pointer; }
+        .quote-mode-active { color: #d97d54 !important; background: rgba(217, 125, 84, 0.1) !important; }
     </style>
 </head>
 <body class="flex h-full overflow-hidden overflow-x-hidden bg-white dark:bg-[#09090b] text-zinc-800 dark:text-zinc-300 transition-colors duration-300">
@@ -133,6 +136,9 @@
                 </div>
                 <span id="token-badge" class="hidden px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 flex-shrink-0 whitespace-nowrap"></span>
             </div>
+            <button id="quote-mode-btn" class="hidden flex-shrink-0 p-2 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" onclick="toggleQuoteMode()" title="Quote mode">
+                <i class="ph ph-quotes text-lg"></i>
+            </button>
         </header>
 
         <div class="relative flex-1 min-h-0">
@@ -198,8 +204,24 @@
     }
 
     const selectedMessages = new Set();
+    let quoteMode = false;
+
+    function toggleQuoteMode() {
+        quoteMode = !quoteMode;
+        const chat = document.getElementById('chat');
+        const btn = document.getElementById('quote-mode-btn');
+        if (quoteMode) {
+            chat.classList.add('quote-mode');
+            btn.classList.add('quote-mode-active');
+        } else {
+            chat.classList.remove('quote-mode');
+            btn.classList.remove('quote-mode-active');
+            clearSelection();
+        }
+    }
 
     function toggleMsgSelect(el, event) {
+        if (!quoteMode) return;
         if (event && event.target.closest('button, summary, a, input, details')) return;
         const idx = el.getAttribute('data-msg-index');
         if (selectedMessages.has(idx)) {
@@ -439,7 +461,7 @@
             const textItems = msg.items.filter(i => i.type === 'text');
             if (!textItems.length) return '';
             const text = textItems.map(i=>i.text).join('\n');
-            return `<div class="flex flex-col self-end max-w-[75%] items-end cursor-pointer relative" data-msg-index="${index}" data-role="user" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this, event)">
+            return `<div class="flex flex-col self-end max-w-[75%] items-end relative" data-msg-index="${index}" data-role="user" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this, event)">
                 <div class="text-[10px] font-mono text-zinc-400 mb-1">${ts}</div>
                 <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</div>
                 <div class="msg-select-check absolute -top-2 -right-2 w-5 h-5 items-center justify-center rounded-full bg-[#d97d54] text-white text-xs"><i class="ph ph-check"></i></div>
@@ -449,7 +471,7 @@
             if (!itemsHtml.trim()) return '';
             const textItems = msg.items.filter(i => i.type === 'text');
             const text = textItems.map(i=>i.text).join('\n');
-            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9 cursor-pointer" data-msg-index="${index}" data-role="assistant" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this, event)">
+            return `<div class="flex flex-col self-start max-w-[85%] w-full relative pl-9 " data-msg-index="${index}" data-role="assistant" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this, event)">
                 <div class="absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
                     <i class="ph ph-robot text-anthropic text-sm"></i>
                 </div>
@@ -545,7 +567,7 @@
     async function loadSession(session) {
         // Stop any running playback
         playbackStop();
-        clearSelection();
+        if (quoteMode) toggleQuoteMode();
 
         currentSession = session;
         // Update header
@@ -554,6 +576,7 @@
         titleEl.title = session.display_name || session.id;
         document.getElementById('token-badge').classList.add('hidden');
         document.getElementById('rename-btn').classList.remove('hidden');
+        document.getElementById('quote-mode-btn').classList.remove('hidden');
         document.getElementById('playback-btn').classList.remove('hidden');
         document.getElementById('playback-controls').classList.remove('hidden');
         document.getElementById('playback-controls').classList.add('flex');
