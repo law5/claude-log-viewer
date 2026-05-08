@@ -19,10 +19,13 @@ Claude Code automatically saves all session logs to `~/.claude/projects/`. This 
 - **Search** — two modes: session name (incremental) and content (full-text across all sessions). Hits are highlighted in-context with jump navigation
 - Session rename support
 - Token count per session
-- **Playback mode** — replay a session with smooth bubble animations (▶ play/pause, ⏹ stop, speed slider)
+- **Playback mode** — replay a session with smooth bubble animations (▶ play/pause, ⏹ stop, speed slider). Controls tucked into a collapsible panel
+- **Quote mode** — select messages and copy as labeled text. User/Agent display names are customizable (e.g. "少佐" / "バトー")
+- **Auto-linking** — URLs in messages are automatically converted to clickable links (`target="_blank"`)
 - Dark / Light / AUTO theme
 - EN / JA UI language toggle
 - Reload button to pick up new sessions
+- **Mobile-friendly** — responsive 3-row header layout that avoids overlap on small screens
 
 ### Requirements
 
@@ -83,7 +86,7 @@ Then just run `clv` from anywhere.
 
 ### Playback mode
 
-Click the ▶ button next to the session title to replay the conversation with a smooth bubble animation.
+Open the playback panel with the ▼ toggle in the header, then press ▶ to replay the conversation with a smooth bubble animation.
 
 - **▶ / ⏸** — play or pause. Pausing keeps your position; pressing ▶ again resumes from where you stopped
 - **⏹** — stop and show all messages instantly
@@ -131,10 +134,13 @@ Claude Code はセッションのログを自動的に `~/.claude/projects/` に
 - **検索** — セッション名検索（インクリメンタル）と本文検索（全セッション横断）の2モード。ヒット箇所をハイライト表示＆ジャンプナビ付き
 - セッション名の手動変更
 - セッションごとのトークン数表示
-- **再生モード** — セッションを吹き出しアニメーションで追体験（▶ 再生/一時停止、⏹ 停止、速度スライダー）
+- **再生モード** — セッションを吹き出しアニメーションで追体験（▶ 再生/一時停止、⏹ 停止、速度スライダー）。折りたたみパネルに格納
+- **引用モード** — メッセージを選択してラベル付きテキストとしてコピー。User/Agent の表示名をカスタマイズ可能（例:「少佐」/「バトー」）
+- **URLの自動リンク化** — メッセージ内のURLをクリック可能なリンクに自動変換（`target="_blank"`）
 - ダーク / ライト / AUTO テーマ切り替え
 - EN / JA 言語切り替え
 - リロードボタン（新しいセッションを再読み込み）
+- **モバイル対応** — スマホでも見やすい3段構成のレスポンシブヘッダー
 
 ### 必要なもの
 
@@ -195,7 +201,7 @@ alias clv='source ~/claude-log-viewer/.venv/bin/activate && claude-log-viewer'
 
 ### 再生モード
 
-セッションタイトル横の ▶ ボタンを押すと、会話を吹き出しアニメーションで追体験できます。
+ヘッダーの ▼ トグルで再生パネルを開き、▶ を押すと会話を吹き出しアニメーションで追体験できます。
 
 - **▶ / ⏸** — 再生または一時停止。一時停止した位置から再開できます
 - **⏹** — 停止して全メッセージを即時表示
