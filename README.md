@@ -92,9 +92,30 @@ Open the playback panel with the ▼ toggle in the header, then press ▶ to rep
 - **⏹** — stop and show all messages instantly
 - **Speed slider** — drag to adjust playback speed (0.05x slow to 4x fast)
 
+### Session log retention & archiving
+
+Claude Code automatically deletes session logs older than **30 days** by default. To preserve important sessions, you can:
+
+1. **Extend or disable the cleanup** — add to `~/.claude/settings.json`:
+   ```json
+   "cleanupPeriodDays": 90
+   ```
+   Set to `0` to disable automatic deletion entirely (watch disk usage).
+
+2. **Archive sessions manually** — copy `.jsonl` files to the `archives/` directory (or any folder of your choice), then register the path in the config:
+   ```
+   ~/.config/claude-log-viewer/config.json
+   ```
+   ```json
+   {
+     "extra_paths": ["/path/to/your/archives"]
+   }
+   ```
+   Archived sessions will appear in the sidebar alongside active ones. Use the **session ID** shown in the header (click to copy) to identify which files to archive.
+
 ### Adding custom session files
 
-Place any `.jsonl` files under a subdirectory of `~/.claude/projects/`, then click the reload button in the UI.
+Place any `.jsonl` files under a subdirectory of `~/.claude/projects/` (or an `extra_paths` directory), then click the reload button in the UI.
 
 ```
 ~/.claude/projects/
@@ -207,9 +228,30 @@ alias clv='source ~/claude-log-viewer/.venv/bin/activate && claude-log-viewer'
 - **⏹** — 停止して全メッセージを即時表示
 - **速度スライダー** — ドラッグして再生速度を調整（0.05x〜4x）
 
+### セッションログの保持期間と退避
+
+Claude Code はデフォルトで **30日** 経過したセッションログを自動削除します。大事なセッションを残すには：
+
+1. **自動削除の期間を延長・無効化** — `~/.claude/settings.json` に追加：
+   ```json
+   "cleanupPeriodDays": 90
+   ```
+   `0` にすると自動削除を無効化できます（ディスク容量に注意）。
+
+2. **手動で退避** — `.jsonl` ファイルを `archives/` ディレクトリ（または任意のフォルダ）にコピーし、config にパスを登録：
+   ```
+   ~/.config/claude-log-viewer/config.json
+   ```
+   ```json
+   {
+     "extra_paths": ["/path/to/your/archives"]
+   }
+   ```
+   退避したセッションもサイドバーに表示されます。ヘッダーに表示される **セッションID**（クリックでコピー可能）を使って、退避するファイルを特定できます。
+
 ### カスタムファイルの追加
 
-`~/.claude/projects/` 以下の任意のサブフォルダに `.jsonl` ファイルを置いて、UIのリロードボタンを押すと左サイドバーに表示されます。
+`~/.claude/projects/`（または `extra_paths` で指定したディレクトリ）以下の任意のサブフォルダに `.jsonl` ファイルを置いて、UIのリロードボタンを押すと左サイドバーに表示されます。
 
 ```
 ~/.claude/projects/
