@@ -111,7 +111,13 @@ Claude Code automatically deletes session logs older than **30 days** by default
      "extra_paths": ["/path/to/your/archives"]
    }
    ```
-   Archived sessions will appear in the sidebar alongside active ones. Use the **session ID** shown in the header (click to copy) to identify which files to archive.
+   Archived sessions will appear in the sidebar alongside active ones. Use the **session filename** shown in the header (click to copy) to identify which files to archive.
+
+   Each session consists of a `.jsonl` file and optionally a folder with the same name (containing subagent logs). Copy both when archiving:
+   ```bash
+   cp ~/.claude/projects/<project>/<session-id>.jsonl archives/<project>/
+   cp -r ~/.claude/projects/<project>/<session-id>/ archives/<project>/  # if exists
+   ```
 
 ### Adding custom session files
 
@@ -247,7 +253,13 @@ Claude Code はデフォルトで **30日** 経過したセッションログを
      "extra_paths": ["/path/to/your/archives"]
    }
    ```
-   退避したセッションもサイドバーに表示されます。ヘッダーに表示される **セッションID**（クリックでコピー可能）を使って、退避するファイルを特定できます。
+   退避したセッションもサイドバーに表示されます。ヘッダーに表示される **セッションファイル名**（クリックでコピー可能）を使って、退避するファイルを特定できます。
+
+   各セッションは `.jsonl` ファイルと、同名のフォルダ（サブエージェントのログ）で構成されます。退避時は両方をコピーしてください：
+   ```bash
+   cp ~/.claude/projects/<project>/<session-id>.jsonl archives/<project>/
+   cp -r ~/.claude/projects/<project>/<session-id>/ archives/<project>/  # 存在する場合
+   ```
 
 ### カスタムファイルの追加
 
