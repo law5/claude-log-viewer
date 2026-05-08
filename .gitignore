@@ -1,6 +1,8 @@
-# AIDesigner
-.aidesigner/*
-!.aidesigner/.gitkeep
+# Claude Code / MCP / AIDesigner
+.agents/
+.aidesigner/
+.claude/
+.mcp.json
 
 # Python
 .venv/
