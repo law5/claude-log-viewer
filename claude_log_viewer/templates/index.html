@@ -49,6 +49,9 @@
         .dark .speed-slider::-webkit-slider-thumb { background: #d97d54; }
         .speed-slider::-webkit-slider-thumb { background: #d97d54; }
 
+        /* Long text wrap (URLs etc) */
+        .msg-wrap { overflow-wrap: anywhere; word-break: break-word; }
+
         /* Line clamp fallback */
         .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -467,7 +470,7 @@
 
     function renderItem(item) {
         if (item.type === 'text') {
-            return `<div class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">${linkifyUrls(escapeHtml(item.text))}</div>`;
+            return `<div class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap msg-wrap">${linkifyUrls(escapeHtml(item.text))}</div>`;
         }
         if (item.type === 'tool_use') {
             const label = toolLabel(item.name);
@@ -487,7 +490,7 @@
             </details>`;
         }
         if (item.type === 'tool_result') {
-            return `<div class="text-[11px] font-mono text-zinc-500 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded px-2 py-1 whitespace-pre-wrap max-w-2xl overflow-x-auto">${escapeHtml(item.text)}</div>`;
+            return `<div class="text-[11px] font-mono text-zinc-500 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded px-2 py-1 whitespace-pre-wrap msg-wrap max-w-2xl overflow-x-auto">${escapeHtml(item.text)}</div>`;
         }
         return '';
     }
@@ -525,7 +528,7 @@
             const text = textItems.map(i=>i.text).join('\n');
             return `<div class="flex flex-col self-end max-w-[75%] items-end relative" data-msg-index="${index}" data-role="user" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this, event)">
                 <div class="text-[10px] font-mono text-zinc-400 mb-1">${ts}</div>
-                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${linkifyUrls(escapeHtml(text))}</div>
+                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap msg-wrap">${linkifyUrls(escapeHtml(text))}</div>
                 <div class="msg-select-check absolute -top-2 -right-2 w-5 h-5 items-center justify-center rounded-full bg-[#d97d54] text-white text-xs"><i class="ph ph-check"></i></div>
             </div>`;
         } else {
