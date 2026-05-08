@@ -29,6 +29,13 @@ Claude Code automatically saves all session logs to `~/.claude/projects/`. This 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
+> **Apple Silicon (M1/M2/M3) users:** Make sure you are using an **arm64-native** Python.
+> System Python from Xcode Command Line Tools may be too old (3.9), and Intel-version (`x86_64`) Python installed via Rosetta Homebrew (`/usr/local/bin/brew`) can cause architecture mismatch errors.
+> We recommend installing via **arm64 Homebrew** (`/opt/homebrew/bin/brew`):
+> ```bash
+> brew install python@3.12
+> ```
+
 ### Installation
 
 **With uv (recommended)**
@@ -50,7 +57,7 @@ git clone https://github.com/law5/claude-log-viewer.git
 cd claude-log-viewer
 python3 -m venv .venv
 source .venv/bin/activate
-pip install fastapi uvicorn
+pip install -e .
 python3 -m claude_log_viewer.main
 ```
 
@@ -134,6 +141,13 @@ Claude Code はセッションのログを自動的に `~/.claude/projects/` に
 - Python 3.11 以上
 - [uv](https://docs.astral.sh/uv/)（推奨）または pip
 
+> **Apple Silicon（M1/M2/M3）の場合:** **arm64ネイティブ** の Python を使ってください。
+> Xcode Command Line Tools 付属の Python は 3.9 と古く、Rosetta 経由の Intel版 Homebrew（`/usr/local/bin/brew`）で入れた Python はアーキテクチャ不一致エラーの原因になります。
+> **arm64 Homebrew**（`/opt/homebrew/bin/brew`）経由でのインストールを推奨します：
+> ```bash
+> brew install python@3.12
+> ```
+
 ### インストール
 
 **uv を使う場合（推奨）**
@@ -155,7 +169,7 @@ git clone https://github.com/law5/claude-log-viewer.git
 cd claude-log-viewer
 python3 -m venv .venv
 source .venv/bin/activate
-pip install fastapi uvicorn
+pip install -e .
 python3 -m claude_log_viewer.main
 ```
 
@@ -212,6 +226,52 @@ Claude のコンフィグディレクトリをカスタマイズしている場�
 
 ```bash
 CLAUDE_CONFIG_DIR=/path/to/config uv run python -m claude_log_viewer.main
+```
+
+---
+
+## Troubleshooting / トラブルシューティング
+
+### `ImportError: incompatible architecture (have 'x86_64', need 'arm64')`
+
+This happens when Python or its packages were installed for the wrong CPU architecture (typically Intel Homebrew on Apple Silicon).
+
+Apple Silicon で Intel 版の Python やパッケージがインストールされている場合に発生します。
+
+**Fix / 対処法:**
+
+```bash
+# 1. Remove the existing venv / 既存の venv を削除
+rm -rf .venv
+
+# 2. Confirm you are using arm64 Python / arm64版 Python を確認
+file $(which python3)
+# Expected: "Mach-O 64-bit executable arm64"
+
+# 3. If it shows x86_64, install arm64 Python via Homebrew
+#    x86_64 と表示された場合、arm64 Homebrew で Python を入れ直す
+/opt/homebrew/bin/brew install python@3.12
+
+# 4. Recreate the venv with the correct Python / 正しい Python で venv を再作成
+/opt/homebrew/bin/python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+### System Python is too old (`python3 --version` shows 3.9 or older)
+
+macOS ships with Python from Xcode Command Line Tools, which may be 3.9. This project requires 3.11+.
+
+macOS 付属の Python（Xcode Command Line Tools 経由）は 3.9 の場合があります。本プロジェクトは 3.11 以上が必要です。
+
+**Fix / 対処法:**
+
+```bash
+brew install python@3.12
+# Then create the venv with the new version / 新しいバージョンで venv を作成
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
 ---
