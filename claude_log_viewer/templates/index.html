@@ -105,13 +105,25 @@
         <div id="session-list" class="flex-1 overflow-y-auto py-2">
             <div class="text-xs text-zinc-400 px-4 py-4" data-i18n="loading">Loading...</div>
         </div>
-        <div class="flex items-center gap-1 px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
+        <div class="relative flex items-center gap-1 px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
             <button id="lang-toggle" class="px-2 py-1 rounded text-[11px] font-mono text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">EN</button>
             <button id="theme-toggle" class="p-2 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors" title="Toggle theme">
                 <i class="ph ph-sun text-lg" id="icon-light"></i>
                 <i class="ph ph-moon text-lg hidden" id="icon-dark"></i>
                 <span id="icon-auto" class="hidden text-[10px] font-mono font-bold">AUTO</span>
             </button>
+            <button id="quote-names-btn" class="p-2 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors" title="Quote display names" onclick="toggleQuoteNamesPopover()">
+                <i class="ph ph-user-circle text-lg"></i>
+            </button>
+            <!-- Quote names popover -->
+            <div id="quote-names-popover" class="hidden absolute bottom-full left-0 mb-2 ml-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-3 z-30 w-56">
+                <div class="text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-2" data-i18n="quote_names_title">Quote Display Names</div>
+                <label class="block text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">User</label>
+                <input id="quote-user-name" type="text" maxlength="20" placeholder="User" class="w-full px-2 py-1 mb-2 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 outline-none focus:border-zinc-400 dark:focus:border-zinc-500">
+                <label class="block text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">Agent</label>
+                <input id="quote-agent-name" type="text" maxlength="20" placeholder="Agent" class="w-full px-2 py-1 mb-3 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 outline-none focus:border-zinc-400 dark:focus:border-zinc-500">
+                <button onclick="saveQuoteNames()" class="w-full px-2 py-1 bg-zinc-800 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-800 text-xs font-medium rounded hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors" data-i18n="save">Save</button>
+            </div>
         </div>
     </aside>
 
@@ -293,7 +305,9 @@
             if (!el) return;
             const role = el.getAttribute('data-role');
             const text = el.getAttribute('data-text');
-            const label = role === 'user' ? 'User' : 'Agent';
+            const label = role === 'user'
+                ? (localStorage.getItem('quote_user_name') || 'User')
+                : (localStorage.getItem('quote_agent_name') || 'Agent');
             msgs.push(`${label}: ${text}`);
         });
         const result = msgs.join('\n\n');
@@ -327,6 +341,7 @@
             tool_agent: "Agent", tool_other: "Tool",
             tool_search: "Search", tool_task: "Task",
             quote_selected: "selected", copy_quote: "Copy", copied: "Copied!",
+            quote_names_title: "Quote Display Names",
         },
         ja: {
             title: "Claude ログビューアー", loading: "読み込み中...",
@@ -347,6 +362,7 @@
             tool_agent: "Agent", tool_other: "ツール",
             tool_search: "Search", tool_task: "Task",
             quote_selected: "件選択中", copy_quote: "コピー", copied: "コピー済み!",
+            quote_names_title: "引用時の表示名",
         }
     };
 
@@ -1111,6 +1127,40 @@
             loadSession(currentSession);
         }
     });
+    // Quote names popover
+    function toggleQuoteNamesPopover() {
+        const pop = document.getElementById('quote-names-popover');
+        const isHidden = pop.classList.contains('hidden');
+        if (isHidden) {
+            document.getElementById('quote-user-name').value = localStorage.getItem('quote_user_name') || '';
+            document.getElementById('quote-agent-name').value = localStorage.getItem('quote_agent_name') || '';
+            pop.classList.remove('hidden');
+        } else {
+            pop.classList.add('hidden');
+        }
+    }
+    window.toggleQuoteNamesPopover = toggleQuoteNamesPopover;
+
+    function saveQuoteNames() {
+        const userName = document.getElementById('quote-user-name').value.trim();
+        const agentName = document.getElementById('quote-agent-name').value.trim();
+        if (userName) localStorage.setItem('quote_user_name', userName);
+        else localStorage.removeItem('quote_user_name');
+        if (agentName) localStorage.setItem('quote_agent_name', agentName);
+        else localStorage.removeItem('quote_agent_name');
+        document.getElementById('quote-names-popover').classList.add('hidden');
+    }
+    window.saveQuoteNames = saveQuoteNames;
+
+    // Close popover on outside click
+    document.addEventListener('click', (e) => {
+        const pop = document.getElementById('quote-names-popover');
+        const btn = document.getElementById('quote-names-btn');
+        if (!pop.classList.contains('hidden') && !pop.contains(e.target) && !btn.contains(e.target)) {
+            pop.classList.add('hidden');
+        }
+    });
+
     document.getElementById('search').addEventListener('input', () => {
         if (searchMode === 'session') {
             renderSidebar(allSessions);
