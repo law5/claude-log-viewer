@@ -417,6 +417,18 @@
         return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    function linkifyUrls(escapedHtml) {
+        return escapedHtml.replace(
+            /https?:\/\/[^\s<>&"')\]`]+/g,
+            url => {
+                // Strip trailing punctuation that's likely not part of the URL
+                const clean = url.replace(/[.,;:!?]+$/, '');
+                const tail = url.slice(clean.length);
+                return `<a href="${clean}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:text-blue-800 dark:hover:text-blue-300 break-all" onclick="event.stopPropagation()">${clean}</a>${tail}`;
+            }
+        );
+    }
+
     function formatDate(isoStr) {
         const d = new Date(isoStr);
         const today = new Date(); today.setHours(0,0,0,0);
@@ -439,7 +451,7 @@
 
     function renderItem(item) {
         if (item.type === 'text') {
-            return `<div class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">${escapeHtml(item.text)}</div>`;
+            return `<div class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">${linkifyUrls(escapeHtml(item.text))}</div>`;
         }
         if (item.type === 'tool_use') {
             const label = toolLabel(item.name);
@@ -497,7 +509,7 @@
             const text = textItems.map(i=>i.text).join('\n');
             return `<div class="flex flex-col self-end max-w-[75%] items-end relative" data-msg-index="${index}" data-role="user" data-text="${escapeAttr(text)}" onclick="toggleMsgSelect(this, event)">
                 <div class="text-[10px] font-mono text-zinc-400 mb-1">${ts}</div>
-                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</div>
+                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">${linkifyUrls(escapeHtml(text))}</div>
                 <div class="msg-select-check absolute -top-2 -right-2 w-5 h-5 items-center justify-center rounded-full bg-[#d97d54] text-white text-xs"><i class="ph ph-check"></i></div>
             </div>`;
         } else {
