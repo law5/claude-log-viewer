@@ -38,6 +38,9 @@
         .msg-animate { animation: msg-appear 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         .msg-visible { opacity: 1; }
 
+        /* Reload spin */
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
         /* Speed slider styling */
         .speed-slider { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; outline: none; cursor: pointer; }
         .speed-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; cursor: pointer; }
@@ -114,31 +117,47 @@
 
     <!-- MAIN -->
     <main class="flex-1 flex flex-col min-w-0">
-        <header class="h-14 flex items-center justify-between px-4 md:px-6 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-lg sticky top-0 z-10 transition-colors duration-300">
-            <div class="flex items-center gap-2 min-w-0">
+        <header class="flex flex-col border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-lg sticky top-0 z-10 transition-colors duration-300">
+            <!-- Row 1: Title + Rename -->
+            <div class="flex items-center gap-2 px-4 md:px-6 h-11 min-w-0">
                 <button id="sidebar-toggle" class="p-1.5 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors md:hidden" onclick="toggleSidebar()" title="Open sidebar">
                     <i class="ph ph-list text-lg"></i>
                 </button>
-                <h1 id="session-title" class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[30ch]" data-i18n="select_session">Select a session</h1>
+                <h1 id="session-title" class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate min-w-0" data-i18n="select_session">Select a session</h1>
                 <button id="rename-btn" class="hidden flex-shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Rename session">
                     <i class="ph ph-pencil text-sm"></i>
                 </button>
-                <button id="playback-btn" class="hidden flex-shrink-0 p-1 rounded text-zinc-400 hover:text-anthropic hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Play / Pause">
-                    <i class="ph ph-play text-sm" id="playback-icon"></i>
-                </button>
-                <button id="stop-btn" class="hidden flex-shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Stop">
-                    <i class="ph ph-stop text-sm"></i>
-                </button>
-                <div id="playback-controls" class="hidden items-center gap-2 flex-shrink-0">
-                    <i class="ph ph-gauge text-xs text-zinc-400"></i>
-                    <input id="speed-slider" type="range" min="1" max="20" value="10" class="speed-slider w-20">
-                    <span id="speed-label" class="text-[10px] font-mono text-zinc-400 w-8">1.0x</span>
-                </div>
-                <span id="token-badge" class="hidden px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 flex-shrink-0 whitespace-nowrap"></span>
             </div>
-            <button id="quote-mode-btn" class="hidden flex-shrink-0 p-2 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" onclick="toggleQuoteMode()" title="Quote mode">
-                <i class="ph ph-quotes text-lg"></i>
-            </button>
+            <!-- Row 2: Token badge + Quote + Reload + Playback toggle -->
+            <div id="header-row2" class="hidden items-center gap-2 px-4 md:px-6 h-9 border-t border-zinc-100 dark:border-zinc-800/50">
+                <span id="token-badge" class="hidden px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 flex-shrink-0 whitespace-nowrap"></span>
+                <div class="flex-1"></div>
+                <button id="quote-mode-btn" class="flex-shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" onclick="toggleQuoteMode()" title="Quote mode">
+                    <i class="ph ph-quotes text-sm"></i>
+                </button>
+                <button id="reload-btn" class="flex-shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" onclick="reloadSession()" title="Reload session">
+                    <i class="ph ph-arrows-clockwise text-sm"></i>
+                </button>
+                <button id="playback-toggle" class="flex-shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" onclick="togglePlaybackPanel()" title="Playback controls">
+                    <i class="ph ph-caret-down text-sm" id="playback-toggle-icon"></i>
+                </button>
+            </div>
+            <!-- Row 3: Playback controls (collapsible) -->
+            <div id="playback-panel" class="overflow-hidden transition-all duration-300 ease-in-out" style="max-height: 0;">
+                <div class="flex items-center gap-3 px-4 md:px-6 h-10 border-t border-zinc-100 dark:border-zinc-800/50">
+                    <button id="playback-btn" class="flex-shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-anthropic hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Play / Pause">
+                        <i class="ph ph-play text-sm" id="playback-icon"></i>
+                    </button>
+                    <button id="stop-btn" class="hidden flex-shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Stop">
+                        <i class="ph ph-stop text-sm"></i>
+                    </button>
+                    <div class="flex items-center gap-2 flex-1">
+                        <i class="ph ph-gauge text-xs text-zinc-400"></i>
+                        <input id="speed-slider" type="range" min="1" max="20" value="10" class="speed-slider flex-1 max-w-[120px]">
+                        <span id="speed-label" class="text-[10px] font-mono text-zinc-400 w-8">1.0x</span>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <div class="relative flex-1 min-h-0">
@@ -579,6 +598,32 @@
         }
     }
 
+    function togglePlaybackPanel() {
+        const panel = document.getElementById('playback-panel');
+        const icon = document.getElementById('playback-toggle-icon');
+        const isOpen = panel.style.maxHeight !== '0px' && panel.style.maxHeight !== '';
+        if (isOpen) {
+            panel.style.maxHeight = '0';
+            icon.className = 'ph ph-caret-down text-sm';
+        } else {
+            panel.style.maxHeight = panel.scrollHeight + 'px';
+            icon.className = 'ph ph-caret-up text-sm';
+        }
+    }
+
+    async function reloadSession() {
+        if (!currentSession) return;
+        const btn = document.getElementById('reload-btn');
+        const icon = btn.querySelector('i');
+        // Spin animation
+        icon.style.animation = 'spin 0.6s linear infinite';
+        try {
+            await loadSession(currentSession);
+        } finally {
+            icon.style.animation = '';
+        }
+    }
+
     async function loadSession(session) {
         // Stop any running playback
         playbackStop();
@@ -591,10 +636,10 @@
         titleEl.title = session.display_name || session.id;
         document.getElementById('token-badge').classList.add('hidden');
         document.getElementById('rename-btn').classList.remove('hidden');
-        document.getElementById('quote-mode-btn').classList.remove('hidden');
-        document.getElementById('playback-btn').classList.remove('hidden');
-        document.getElementById('playback-controls').classList.remove('hidden');
-        document.getElementById('playback-controls').classList.add('flex');
+        // Show header row 2
+        const row2 = document.getElementById('header-row2');
+        row2.classList.remove('hidden');
+        row2.classList.add('flex');
         document.getElementById('chat').innerHTML = `<div class="text-xs text-zinc-400 px-2">${t('loading')}</div>`;
         // Re-render sidebar to update active state
         renderSidebar(allSessions);
